@@ -1,8 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap");
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
   --font-sans: "Inter", sans-serif;
   --font-heading: "Poppins", sans-serif;
@@ -77,14 +75,6 @@
   &:hover {
     background: #f1f5f9;
   }
-
-  .dark & {
-    color: white;
-  }
-
-  .dark &:hover {
-    background: #1e293b;
-  }
 }
 
 @utility product-grid {
@@ -121,11 +111,6 @@
     box-shadow: 0 16px 40px rgba(18, 40, 92, 0.1);
     transform: translateY(-3px);
   }
-
-  .dark & {
-    border-color: #1e293b;
-    background: #0f172a;
-  }
 }
 
 @utility category-card {
@@ -149,11 +134,6 @@
     box-shadow: 0 10px 30px rgba(18, 40, 92, 0.08);
     transform: translateY(-2px);
   }
-
-  .dark & {
-    border-color: #1e293b;
-    background: #0f172a;
-  }
 }
 
 @utility field {
@@ -174,12 +154,6 @@
     border-color: #ff7a1a;
     box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.12);
   }
-
-  .dark & {
-    border-color: #334155;
-    background: #0f172a;
-    color: white;
-  }
 }
 
 @utility filter-check {
@@ -195,10 +169,6 @@
     height: 1rem;
     width: 1rem;
     accent-color: #ff7a1a;
-  }
-
-  .dark & {
-    color: #cbd5e1;
   }
 }
 
@@ -221,11 +191,6 @@
   background: linear-gradient(90deg, #eef1f5 25%, #f8fafc 50%, #eef1f5 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
-}
-
-.dark .skeleton {
-  background: linear-gradient(90deg, #172033 25%, #202b40 50%, #172033 75%);
-  background-size: 200% 100%;
 }
 
 @keyframes shimmer {

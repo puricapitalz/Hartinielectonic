@@ -27,7 +27,6 @@ import {
   MessageCircle,
   Minus,
   Monitor,
-  Moon,
   PackageCheck,
   Phone,
   Plus,
@@ -41,7 +40,6 @@ import {
   Sparkles,
   Star,
   Store,
-  Sun,
   Truck,
   Tv,
   UserRound,
@@ -187,9 +185,8 @@ function Button({
   const styles = {
     primary: "bg-[#FF7A1A] text-white hover:bg-[#e9650c] shadow-[0_8px_22px_rgba(255,122,26,.2)]",
     secondary: "bg-[#12285C] text-white hover:bg-[#0d1e49]",
-    outline:
-      "border border-slate-200 bg-white text-[#12285C] hover:border-[#12285C] dark:border-slate-700 dark:bg-slate-900 dark:text-white",
-    ghost: "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+    outline: "border border-slate-200 bg-white text-[#12285C] hover:border-[#12285C]",
+    ghost: "text-slate-600 hover:bg-slate-100",
   };
   return (
     <button
@@ -203,15 +200,7 @@ function Button({
   );
 }
 
-function Header({
-  cartCount,
-  dark,
-  setDark,
-}: {
-  cartCount: number;
-  dark: boolean;
-  setDark: (value: boolean) => void;
-}) {
+function Header({ cartCount }: { cartCount: number }) {
   const [mobile, setMobile] = useState(false);
   return (
     <>
@@ -231,7 +220,7 @@ function Header({
           </span>
         </div>
       </div>
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/95">
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
         <div className="container flex h-[72px] items-center justify-between gap-5">
           <Logo />
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Navigasi utama">
@@ -239,20 +228,13 @@ function Header({
               <button
                 key={page}
                 onClick={() => go(page)}
-                className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-[#12285C] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-[#12285C]"
               >
                 {label}
               </button>
             ))}
           </nav>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setDark(!dark)}
-              className="icon-button"
-              aria-label={dark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
-            >
-              {dark ? <Sun size={19} /> : <Moon size={19} />}
-            </button>
             <button onClick={() => go("orders")} className="icon-button" aria-label="Pesanan saya">
               <ClipboardList size={20} />
             </button>
@@ -278,7 +260,7 @@ function Header({
           </div>
         </div>
         {mobile && (
-          <div className="border-t border-slate-100 bg-white px-5 py-4 shadow-xl dark:border-slate-800 dark:bg-slate-950 lg:hidden">
+          <div className="border-t border-slate-100 bg-white px-5 py-4 shadow-xl lg:hidden">
             <nav className="grid gap-1">
               {navItems.map(([label, page]) => (
                 <button
@@ -287,7 +269,7 @@ function Header({
                     go(page);
                     setMobile(false);
                   }}
-                  className="flex min-h-12 items-center justify-between rounded-xl px-4 text-left font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="flex min-h-12 items-center justify-between rounded-xl px-4 text-left font-semibold text-slate-700 hover:bg-slate-100"
                 >
                   {label}
                   <ChevronRight size={18} />
@@ -318,14 +300,10 @@ function SectionTitle({
         {eyebrow && (
           <p className="mb-2 text-xs font-extrabold tracking-[.16em] text-[#FF7A1A]">{eyebrow}</p>
         )}
-        <h2 className="font-heading text-2xl font-bold tracking-tight text-[#12285C] dark:text-white sm:text-3xl">
+        <h2 className="font-heading text-2xl font-bold tracking-tight text-[#12285C] sm:text-3xl">
           {title}
         </h2>
-        {text && (
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-            {text}
-          </p>
-        )}
+        {text && <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{text}</p>}
       </div>
       {action}
     </div>
@@ -336,10 +314,10 @@ function ProductVisual({ product, className = "" }: { product: Product; classNam
   const index = categories.indexOf(product.category);
   const Icon = categoryIcons[index] || Box;
   const palettes = [
-    "from-blue-50 to-blue-100 text-blue-700 dark:from-blue-950 dark:to-slate-900 dark:text-blue-300",
-    "from-orange-50 to-amber-100 text-orange-600 dark:from-orange-950 dark:to-slate-900 dark:text-orange-300",
-    "from-emerald-50 to-teal-100 text-emerald-700 dark:from-emerald-950 dark:to-slate-900 dark:text-emerald-300",
-    "from-violet-50 to-indigo-100 text-violet-700 dark:from-violet-950 dark:to-slate-900 dark:text-violet-300",
+    "from-blue-50 to-blue-100 text-blue-700",
+    "from-orange-50 to-amber-100 text-orange-600",
+    "from-emerald-50 to-teal-100 text-emerald-700",
+    "from-violet-50 to-indigo-100 text-violet-700",
   ];
   return (
     <div
@@ -354,7 +332,7 @@ function ProductVisual({ product, className = "" }: { product: Product; classNam
         size={className.includes("h-") ? 72 : 55}
         strokeWidth={1.35}
       />
-      <span className="absolute bottom-3 rounded-full bg-white/75 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider text-slate-500 backdrop-blur dark:bg-slate-950/65 dark:text-slate-300">
+      <span className="absolute bottom-3 rounded-full bg-white/75 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider text-slate-500 backdrop-blur">
         {product.brand}
       </span>
     </div>
@@ -376,7 +354,7 @@ function ProductCard({
           -{product.discount}%
         </span>
         <button
-          className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white/90 text-slate-500 opacity-0 shadow-sm transition group-hover:opacity-100 dark:bg-slate-900"
+          className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white/90 text-slate-500 opacity-0 shadow-sm transition group-hover:opacity-100"
           aria-label="Simpan produk"
         >
           <Heart size={17} />
@@ -393,7 +371,7 @@ function ProductCard({
         </div>
         <button
           onClick={() => go("detail", product.id)}
-          className="min-h-12 text-left font-heading text-sm font-semibold leading-5 text-[#12285C] transition hover:text-[#FF7A1A] dark:text-white"
+          className="min-h-12 text-left font-heading text-sm font-semibold leading-5 text-[#12285C] transition hover:text-[#FF7A1A]"
         >
           {product.name}
         </button>
@@ -402,14 +380,14 @@ function ProductCard({
           <span className="text-slate-300">•</span> {product.sold.toLocaleString("id-ID")} terjual
         </div>
         <div className="mt-3">
-          <p className="font-heading text-base font-extrabold text-[#12285C] dark:text-white">
+          <p className="font-heading text-base font-extrabold text-[#12285C]">
             {formatPrice(product.price)}
           </p>
           <p className="text-xs text-slate-400 line-through">
             {formatPrice(product.originalPrice)}
           </p>
         </div>
-        <div className="mt-3 inline-flex w-fit items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+        <div className="mt-3 inline-flex w-fit items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
           <CreditCard size={11} /> Cicilan 0%
         </div>
         <div className="mt-4 grid grid-cols-[1fr_44px] gap-2">
@@ -447,14 +425,14 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
   };
   return (
     <>
-      <section className="bg-[#F4F6FA] pb-8 pt-5 dark:bg-slate-950 sm:pt-8">
+      <section className="bg-[#F4F6FA] pb-8 pt-5 sm:pt-8">
         <div className="container">
           <form onSubmit={submitSearch} className="relative z-10 mx-auto mb-5 max-w-4xl">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={22} />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-14 w-full rounded-2xl border border-white bg-white pl-14 pr-28 text-sm shadow-[0_10px_35px_rgba(18,40,92,.1)] outline-none transition focus:ring-2 focus:ring-[#FF7A1A] dark:border-slate-700 dark:bg-slate-900 sm:h-16"
+              className="h-14 w-full rounded-2xl border border-white bg-white pl-14 pr-28 text-sm shadow-[0_10px_35px_rgba(18,40,92,.1)] outline-none transition focus:ring-2 focus:ring-[#FF7A1A] sm:h-16"
               placeholder="Cari TV, kulkas, laptop, merek, atau kategori..."
               aria-label="Cari produk"
             />
@@ -539,10 +517,10 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
                   onClick={() => go("catalog", category)}
                   className="category-card group"
                 >
-                  <span className="grid size-12 place-items-center rounded-2xl bg-blue-50 text-[#12285C] transition group-hover:bg-[#12285C] group-hover:text-white dark:bg-slate-800 dark:text-blue-300">
+                  <span className="grid size-12 place-items-center rounded-2xl bg-blue-50 text-[#12285C] transition group-hover:bg-[#12285C] group-hover:text-white">
                     <Icon size={23} strokeWidth={1.7} />
                   </span>
-                  <span className="mt-3 text-xs font-bold leading-4 text-slate-700 dark:text-slate-200">
+                  <span className="mt-3 text-xs font-bold leading-4 text-slate-700">
                     {category}
                   </span>
                 </button>
@@ -552,7 +530,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
         </div>
       </section>
 
-      <section className="section bg-[#F4F6FA] dark:bg-slate-900/45">
+      <section className="section bg-[#F4F6FA]">
         <div className="container">
           <SectionTitle
             eyebrow="PILIHAN PELANGGAN"
@@ -560,7 +538,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
             action={
               <button
                 onClick={() => go("catalog")}
-                className="hidden items-center gap-1 text-sm font-bold text-[#12285C] sm:flex dark:text-blue-300"
+                className="hidden items-center gap-1 text-sm font-bold text-[#12285C] sm:flex"
               >
                 Lihat semua <ChevronRight size={17} />
               </button>
@@ -583,7 +561,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
             action={
               <button
                 onClick={() => go("promo")}
-                className="hidden items-center gap-1 text-sm font-bold text-[#12285C] sm:flex dark:text-blue-300"
+                className="hidden items-center gap-1 text-sm font-bold text-[#12285C] sm:flex"
               >
                 Semua promo <ChevronRight size={17} />
               </button>
@@ -613,12 +591,9 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
               [CreditCard, "Kartu Kredit", "Bank pilihan"],
               [Banknote, "Transfer Bank", "Konfirmasi otomatis"],
             ].map(([Icon, label, text]) => (
-              <div
-                key={label as string}
-                className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900"
-              >
+              <div key={label as string} className="rounded-2xl border border-slate-200 p-5">
                 <Icon className="text-[#FF7A1A]" size={26} />
-                <h3 className="mt-4 font-heading text-sm font-bold text-[#12285C] dark:text-white">
+                <h3 className="mt-4 font-heading text-sm font-bold text-[#12285C]">
                   {label as string}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">{text as string}</p>
@@ -627,7 +602,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
           </div>
           <button
             onClick={() => go("installment")}
-            className="mt-5 flex w-full items-center justify-between rounded-2xl bg-blue-50 p-5 text-left text-[#12285C] transition hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-200"
+            className="mt-5 flex w-full items-center justify-between rounded-2xl bg-blue-50 p-5 text-left text-[#12285C] transition hover:bg-blue-100"
           >
             <span>
               <strong className="block font-heading">Hitung cicilan produk impian Anda</strong>
@@ -635,7 +610,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
                 Coba simulator cicilan dalam hitungan detik
               </span>
             </span>
-            <span className="grid size-10 place-items-center rounded-full bg-white dark:bg-slate-900">
+            <span className="grid size-10 place-items-center rounded-full bg-white">
               <ArrowRight size={18} />
             </span>
           </button>
@@ -689,7 +664,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
         </div>
       </section>
 
-      <section className="section bg-[#F4F6FA] dark:bg-slate-900/45">
+      <section className="section bg-[#F4F6FA]">
         <div className="container">
           <SectionTitle
             eyebrow="DEKAT DENGAN ANDA"
@@ -702,8 +677,8 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
             }
           />
           <div className="grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
-            <div className="map-pattern relative min-h-72 overflow-hidden rounded-[24px] bg-blue-100 dark:bg-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#D9E8F6]/80 to-[#EDF4FA]/70 dark:from-slate-800 dark:to-slate-900" />
+            <div className="map-pattern relative min-h-72 overflow-hidden rounded-[24px] bg-blue-100">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#D9E8F6]/80 to-[#EDF4FA]/70" />
               {[
                 [22, 38],
                 [35, 55],
@@ -720,8 +695,8 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
                   <MapPin size={15} fill="currentColor" />
                 </span>
               ))}
-              <div className="absolute bottom-5 left-5 right-5 rounded-2xl bg-white/90 p-4 text-sm text-slate-600 shadow-lg backdrop-blur dark:bg-slate-950/85 dark:text-slate-300">
-                <strong className="block font-heading text-[#12285C] dark:text-white">
+              <div className="absolute bottom-5 left-5 right-5 rounded-2xl bg-white/90 p-4 text-sm text-slate-600 shadow-lg backdrop-blur">
+                <strong className="block font-heading text-[#12285C]">
                   Jaringan HARTINI ELECTRONIC
                 </strong>{" "}
                 Sumatera, Jawa, Bali, Kalimantan, Sulawesi, Nusa Tenggara, Maluku, dan Papua.
@@ -757,24 +732,19 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
                 "Tim Hartini membantu hitung kebutuhan power station untuk rumah. Sekarang lebih tenang saat padam.",
               ],
             ].map(([name, city, quote]) => (
-              <figure
-                key={name}
-                className="rounded-2xl border border-slate-200 p-6 dark:border-slate-800 dark:bg-slate-900"
-              >
+              <figure key={name} className="rounded-2xl border border-slate-200 p-6">
                 <div className="flex gap-1 text-amber-400">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <Star key={i} size={15} fill="currentColor" />
                   ))}
                 </div>
-                <blockquote className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  “{quote}”
-                </blockquote>
+                <blockquote className="mt-4 text-sm leading-6 text-slate-600">“{quote}”</blockquote>
                 <figcaption className="mt-5 flex items-center gap-3">
                   <span className="grid size-10 place-items-center rounded-full bg-blue-100 font-bold text-[#12285C]">
                     {name[0]}
                   </span>
                   <span>
-                    <strong className="block text-sm text-[#12285C] dark:text-white">{name}</strong>
+                    <strong className="block text-sm text-[#12285C]">{name}</strong>
                     <span className="text-xs text-slate-400">{city}</span>
                   </span>
                 </figcaption>
@@ -790,14 +760,12 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
 
 function BranchMini({ branch }: { branch: (typeof branches)[number] }) {
   return (
-    <div className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#12285C] dark:bg-blue-950 dark:text-blue-200">
+    <div className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5">
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#12285C]">
         <Store size={20} />
       </span>
       <div className="min-w-0 flex-1">
-        <h3 className="font-heading text-sm font-bold text-[#12285C] dark:text-white">
-          {branch.name}
-        </h3>
+        <h3 className="font-heading text-sm font-bold text-[#12285C]">{branch.name}</h3>
         <p className="mt-1 truncate text-xs text-slate-500">{branch.address}</p>
         <p className="mt-2 text-[11px] font-bold text-emerald-600">Buka hari ini • 09.00–21.00</p>
       </div>
@@ -914,17 +882,14 @@ function CatalogPage({
           </div>
         </div>
         <div className="grid gap-7 lg:grid-cols-[250px_1fr]">
-          <aside className="hidden rounded-2xl border border-slate-200 p-5 dark:border-slate-800 lg:block">
-            <h2 className="mb-6 font-heading text-lg font-bold text-[#12285C] dark:text-white">
-              Filter Produk
-            </h2>
+          <aside className="hidden rounded-2xl border border-slate-200 p-5 lg:block">
+            <h2 className="mb-6 font-heading text-lg font-bold text-[#12285C]">Filter Produk</h2>
             {filters}
           </aside>
           <div>
             <div className="mb-4 flex items-center justify-between text-sm">
               <p className="text-slate-500">
-                <strong className="text-[#12285C] dark:text-white">{filtered.length}</strong> produk
-                ditemukan
+                <strong className="text-[#12285C]">{filtered.length}</strong> produk ditemukan
               </p>
               <button
                 onClick={() => {
@@ -957,7 +922,7 @@ function CatalogPage({
           onClick={() => setMobileFilter(false)}
         >
           <div
-            className="absolute bottom-0 w-full rounded-t-[28px] bg-white p-6 dark:bg-slate-950"
+            className="absolute bottom-0 w-full rounded-t-[28px] bg-white p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-6 flex items-center justify-between">
@@ -1010,7 +975,7 @@ function ProductDetailPage({
         <ChevronRight className="inline" size={12} />{" "}
         <button onClick={() => go("catalog", product.category)}>{product.category}</button>{" "}
         <ChevronRight className="inline" size={12} />{" "}
-        <span className="text-slate-700 dark:text-slate-300">{product.name}</span>
+        <span className="text-slate-700">{product.name}</span>
       </div>
       <section className="container pb-14 pt-2">
         <div className="grid gap-8 lg:grid-cols-2">
@@ -1034,7 +999,7 @@ function ProductDetailPage({
             <span className="text-xs font-extrabold uppercase tracking-[.15em] text-[#FF7A1A]">
               {product.brand}
             </span>
-            <h1 className="mt-3 font-heading text-3xl font-bold leading-tight text-[#12285C] dark:text-white sm:text-4xl">
+            <h1 className="mt-3 font-heading text-3xl font-bold leading-tight text-[#12285C] sm:text-4xl">
               {product.name}
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500">
@@ -1047,7 +1012,7 @@ function ProductDetailPage({
               <span>•</span>
               <span>SKU {product.id}</span>
             </div>
-            <div className="mt-7 rounded-2xl bg-[#F4F6FA] p-5 dark:bg-slate-900">
+            <div className="mt-7 rounded-2xl bg-[#F4F6FA] p-5">
               <div className="flex items-center gap-3">
                 <span className="rounded-lg bg-[#FF7A1A] px-2.5 py-1 text-xs font-bold text-white">
                   -{product.discount}%
@@ -1056,12 +1021,12 @@ function ProductDetailPage({
                   {formatPrice(product.originalPrice)}
                 </span>
               </div>
-              <p className="mt-2 font-heading text-3xl font-extrabold text-[#12285C] dark:text-white">
+              <p className="mt-2 font-heading text-3xl font-extrabold text-[#12285C]">
                 {formatPrice(product.price)}
               </p>
               <button
                 onClick={() => go("installment", product.id)}
-                className="mt-3 flex items-center gap-2 text-sm font-bold text-blue-700 dark:text-blue-300"
+                className="mt-3 flex items-center gap-2 text-sm font-bold text-blue-700"
               >
                 <CreditCard size={17} /> Cicilan mulai {formatPrice(Math.ceil(product.price / 24))}
                 /bulan <ChevronRight size={15} />
@@ -1075,9 +1040,9 @@ function ProductDetailPage({
               ].map(([Icon, text]) => (
                 <div
                   key={text as string}
-                  className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"
+                  className="flex items-center gap-3 text-sm text-slate-600"
                 >
-                  <span className="grid size-9 place-items-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950">
+                  <span className="grid size-9 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
                     <Icon size={17} />
                   </span>
                   {text as string}
@@ -1085,7 +1050,7 @@ function ProductDetailPage({
               ))}
             </div>
             <div className="mt-7 flex items-center gap-3">
-              <div className="flex h-12 items-center rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="flex h-12 items-center rounded-xl border border-slate-200">
                 <button
                   onClick={() => setQty(Math.max(1, qty - 1))}
                   className="grid h-full w-10 place-items-center"
@@ -1120,20 +1085,20 @@ function ProductDetailPage({
           </div>
         </div>
       </section>
-      <section className="border-y border-slate-200 bg-[#F8F9FB] py-12 dark:border-slate-800 dark:bg-slate-900/50">
+      <section className="border-y border-slate-200 bg-[#F8F9FB] py-12">
         <div className="container">
           <div className="flex gap-2 overflow-x-auto">
             {["Spesifikasi", "Pilihan Cicilan", "Stok per Cabang"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`shrink-0 rounded-xl px-5 py-3 text-sm font-bold ${activeTab === tab ? "bg-[#12285C] text-white" : "bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}
+                className={`shrink-0 rounded-xl px-5 py-3 text-sm font-bold ${activeTab === tab ? "bg-[#12285C] text-white" : "bg-white text-slate-600"}`}
               >
                 {tab}
               </button>
             ))}
           </div>
-          <div className="mt-5 rounded-2xl bg-white p-6 dark:bg-slate-900">
+          <div className="mt-5 rounded-2xl bg-white p-6">
             {activeTab === "Spesifikasi" && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Spec label="Spesifikasi utama" value={product.spec} />
@@ -1145,12 +1110,9 @@ function ProductDetailPage({
             {activeTab === "Pilihan Cicilan" && (
               <div className="grid gap-3 sm:grid-cols-3">
                 {[3, 6, 12].map((tenor) => (
-                  <div
-                    key={tenor}
-                    className="rounded-xl border border-slate-200 p-4 dark:border-slate-700"
-                  >
+                  <div key={tenor} className="rounded-xl border border-slate-200 p-4">
                     <span className="text-xs text-slate-500">{tenor} bulan</span>
-                    <strong className="mt-1 block text-[#12285C] dark:text-white">
+                    <strong className="mt-1 block text-[#12285C]">
                       {formatPrice(Math.ceil(product.price / tenor))}/bulan
                     </strong>
                     <span className="mt-2 block text-xs font-bold text-emerald-600">Bunga 0%</span>
@@ -1163,7 +1125,7 @@ function ProductDetailPage({
                 {branches.slice(0, 8).map((branch, i) => (
                   <div
                     key={branch.code}
-                    className="flex items-center justify-between rounded-xl border border-slate-100 p-4 text-sm dark:border-slate-800"
+                    className="flex items-center justify-between rounded-xl border border-slate-100 p-4 text-sm"
                   >
                     <span>{branch.name}</span>
                     <strong className={i % 4 === 0 ? "text-orange-600" : "text-emerald-600"}>
@@ -1195,9 +1157,9 @@ function ProductDetailPage({
 
 function Spec({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-b border-slate-100 pb-4 dark:border-slate-800">
+    <div className="border-b border-slate-100 pb-4">
       <span className="block text-xs text-slate-400">{label}</span>
-      <strong className="mt-1 block text-sm text-slate-700 dark:text-slate-200">{value}</strong>
+      <strong className="mt-1 block text-sm text-slate-700">{value}</strong>
     </div>
   );
 }
@@ -1225,10 +1187,8 @@ function InstallmentPage({ initialId }: { initialId: string }) {
       />
       <section className="section">
         <div className="container grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
-          <div className="rounded-[24px] border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 sm:p-8">
-            <h2 className="font-heading text-xl font-bold text-[#12285C] dark:text-white">
-              Atur simulasi
-            </h2>
+          <div className="rounded-[24px] border border-slate-200 bg-white p-6 sm:p-8">
+            <h2 className="font-heading text-xl font-bold text-[#12285C]">Atur simulasi</h2>
             <div className="mt-6 space-y-5">
               <FilterBlock label="Pilih Produk">
                 <select
@@ -1257,7 +1217,7 @@ function InstallmentPage({ initialId }: { initialId: string }) {
                     <button
                       key={t}
                       onClick={() => setTenor(t)}
-                      className={`rounded-xl border py-3 text-sm font-bold ${tenor === t ? "border-[#12285C] bg-[#12285C] text-white" : "border-slate-200 dark:border-slate-700"}`}
+                      className={`rounded-xl border py-3 text-sm font-bold ${tenor === t ? "border-[#12285C] bg-[#12285C] text-white" : "border-slate-200"}`}
                     >
                       {t} bln
                     </button>
@@ -1270,7 +1230,7 @@ function InstallmentPage({ initialId }: { initialId: string }) {
                     <button
                       key={m}
                       onClick={() => setMethod(m)}
-                      className={`flex items-center gap-3 rounded-xl border p-4 text-left text-sm font-bold ${method === m ? "border-[#FF7A1A] bg-orange-50 text-[#12285C] dark:bg-orange-950/30 dark:text-white" : "border-slate-200 dark:border-slate-700"}`}
+                      className={`flex items-center gap-3 rounded-xl border p-4 text-left text-sm font-bold ${method === m ? "border-[#FF7A1A] bg-orange-50 text-[#12285C]" : "border-slate-200"}`}
                     >
                       <span
                         className={`grid size-5 place-items-center rounded-full border ${method === m ? "border-[#FF7A1A] bg-[#FF7A1A] text-white" : "border-slate-300"}`}
@@ -1350,7 +1310,7 @@ function CartPage({
                 {cart.map(({ product, qty }) => (
                   <div
                     key={product.id}
-                    className="flex gap-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-800 dark:bg-slate-900"
+                    className="flex gap-4 rounded-2xl border border-slate-200 p-4"
                   >
                     <ProductVisual
                       product={product}
@@ -1360,15 +1320,13 @@ function CartPage({
                       <p className="text-xs font-bold text-slate-400">{product.brand}</p>
                       <button
                         onClick={() => go("detail", product.id)}
-                        className="mt-1 text-left font-heading text-sm font-bold text-[#12285C] dark:text-white"
+                        className="mt-1 text-left font-heading text-sm font-bold text-[#12285C]"
                       >
                         {product.name}
                       </button>
-                      <p className="mt-2 font-bold text-[#12285C] dark:text-white">
-                        {formatPrice(product.price)}
-                      </p>
+                      <p className="mt-2 font-bold text-[#12285C]">{formatPrice(product.price)}</p>
                       <div className="mt-3 flex items-center justify-between">
-                        <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center rounded-lg border border-slate-200">
                           <button
                             onClick={() => changeQty(product.id, Math.max(1, qty - 1))}
                             className="p-2"
@@ -1412,10 +1370,8 @@ function OrderSummary({
   buttonType?: "button" | "submit";
 }) {
   return (
-    <aside className="h-fit rounded-2xl border border-slate-200 p-6 dark:border-slate-800 dark:bg-slate-900">
-      <h2 className="font-heading text-lg font-bold text-[#12285C] dark:text-white">
-        Ringkasan Pesanan
-      </h2>
+    <aside className="h-fit rounded-2xl border border-slate-200 p-6">
+      <h2 className="font-heading text-lg font-bold text-[#12285C]">Ringkasan Pesanan</h2>
       <div className="mt-5 space-y-3 text-sm">
         <div className="flex justify-between text-slate-500">
           <span>Subtotal</span>
@@ -1425,8 +1381,8 @@ function OrderSummary({
           <span>Pengiriman</span>
           <span className="font-bold text-emerald-600">Gratis</span>
         </div>
-        <div className="my-4 h-px bg-slate-200 dark:bg-slate-700" />
-        <div className="flex justify-between font-bold text-[#12285C] dark:text-white">
+        <div className="my-4 h-px bg-slate-200" />
+        <div className="flex justify-between font-bold text-[#12285C]">
           <span>Total</span>
           <span className="font-heading text-xl">{formatPrice(subtotal)}</span>
         </div>
@@ -1558,10 +1514,8 @@ function CheckoutPage({
 
 function CheckoutBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-slate-200 p-6 dark:border-slate-800 dark:bg-slate-900">
-      <h2 className="mb-5 font-heading text-lg font-bold text-[#12285C] dark:text-white">
-        {title}
-      </h2>
+    <section className="rounded-2xl border border-slate-200 p-6">
+      <h2 className="mb-5 font-heading text-lg font-bold text-[#12285C]">{title}</h2>
       {children}
     </section>
   );
@@ -1583,11 +1537,11 @@ function Choice({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl border p-4 text-left ${active ? "border-[#FF7A1A] bg-orange-50 dark:bg-orange-950/20" : "border-slate-200 dark:border-slate-700"}`}
+      className={`flex items-center gap-3 rounded-xl border p-4 text-left ${active ? "border-[#FF7A1A] bg-orange-50" : "border-slate-200"}`}
     >
       <span className="text-[#FF7A1A]">{icon}</span>
       <span>
-        <strong className="block text-sm text-[#12285C] dark:text-white">{label}</strong>
+        <strong className="block text-sm text-[#12285C]">{label}</strong>
         <span className="text-xs text-slate-500">{text}</span>
       </span>
     </button>
@@ -1608,8 +1562,7 @@ function BranchesPage() {
         <div className="container">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-500">
-              <strong className="text-[#12285C] dark:text-white">{shown.length}</strong> cabang
-              ditemukan
+              <strong className="text-[#12285C]">{shown.length}</strong> cabang ditemukan
             </p>
             <select
               className="field max-w-xs"
@@ -1624,18 +1577,13 @@ function BranchesPage() {
           <div className="grid gap-5 lg:grid-cols-[.85fr_1.15fr]">
             <div className="max-h-[660px] space-y-3 overflow-auto pr-1">
               {shown.map((branch) => (
-                <article
-                  key={branch.code}
-                  className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900"
-                >
+                <article key={branch.code} className="rounded-2xl border border-slate-200 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-extrabold tracking-wider text-[#FF7A1A]">
                         {branch.code} • {branch.province}
                       </p>
-                      <h2 className="mt-1 font-heading font-bold text-[#12285C] dark:text-white">
-                        {branch.name}
-                      </h2>
+                      <h2 className="mt-1 font-heading font-bold text-[#12285C]">{branch.name}</h2>
                     </div>
                     <span
                       className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${branch.zone === "A-Stabil" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
@@ -1645,12 +1593,10 @@ function BranchesPage() {
                   </div>
                   <p className="mt-3 text-sm leading-5 text-slate-500">{branch.address}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                    <span className="rounded-lg bg-blue-50 px-2.5 py-1.5 font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                    <span className="rounded-lg bg-blue-50 px-2.5 py-1.5 font-semibold text-blue-700">
                       {branch.service}
                     </span>
-                    <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 dark:bg-slate-800">
-                      09.00–21.00
-                    </span>
+                    <span className="rounded-lg bg-slate-100 px-2.5 py-1.5">09.00–21.00</span>
                   </div>
                   <div className="mt-4 flex gap-2">
                     <a
@@ -1663,7 +1609,7 @@ function BranchesPage() {
                     </a>
                     <a
                       href={`tel:${branch.phone}`}
-                      className="grid min-h-10 w-10 place-items-center rounded-lg border border-slate-200 text-[#12285C] dark:border-slate-700 dark:text-white"
+                      className="grid min-h-10 w-10 place-items-center rounded-lg border border-slate-200 text-[#12285C]"
                     >
                       <Phone size={16} />
                     </a>
@@ -1671,7 +1617,7 @@ function BranchesPage() {
                 </article>
               ))}
             </div>
-            <div className="sticky top-28 hidden h-[660px] overflow-hidden rounded-[28px] border border-slate-200 bg-blue-50 lg:block dark:border-slate-800">
+            <div className="sticky top-28 hidden h-[660px] overflow-hidden rounded-[28px] border border-slate-200 bg-blue-50 lg:block">
               <iframe
                 title="Peta jaringan cabang HARTINI ELECTRONIC di Indonesia"
                 src={`https://www.google.com/maps?q=${encodeURIComponent(
@@ -1681,10 +1627,8 @@ function BranchesPage() {
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
-              <div className="pointer-events-none absolute bottom-4 left-4 right-4 rounded-xl bg-white/90 p-4 text-xs text-slate-600 shadow-lg backdrop-blur dark:bg-slate-950/90 dark:text-slate-300">
-                <strong className="block text-[#12285C] dark:text-white">
-                  Area pencarian: {province}
-                </strong>
+              <div className="pointer-events-none absolute bottom-4 left-4 right-4 rounded-xl bg-white/90 p-4 text-xs text-slate-600 shadow-lg backdrop-blur">
+                <strong className="block text-[#12285C]">Area pencarian: {province}</strong>
                 Pilih cabang pada daftar untuk membuka petunjuk arah.
               </div>
             </div>
@@ -1714,7 +1658,7 @@ function MemberPage({ notify }: { notify: (message: string) => void }) {
             {tiers.map(([tier, min, point, benefit], i) => (
               <div
                 key={tier}
-                className={`rounded-[22px] p-6 ${i === 3 ? "bg-[#12285C] text-white shadow-xl" : "border border-slate-200 dark:border-slate-800 dark:bg-slate-900"}`}
+                className={`rounded-[22px] p-6 ${i === 3 ? "bg-[#12285C] text-white shadow-xl" : "border border-slate-200"}`}
               >
                 <span
                   className={`grid size-11 place-items-center rounded-full ${["bg-amber-100 text-amber-800", "bg-slate-200 text-slate-600", "bg-yellow-100 text-yellow-700", "bg-white/10 text-orange-300"][i]}`}
@@ -1722,7 +1666,7 @@ function MemberPage({ notify }: { notify: (message: string) => void }) {
                   <Star size={20} fill="currentColor" />
                 </span>
                 <h2
-                  className={`mt-5 font-heading text-xl font-bold ${i === 3 ? "text-white" : "text-[#12285C] dark:text-white"}`}
+                  className={`mt-5 font-heading text-xl font-bold ${i === 3 ? "text-white" : "text-[#12285C]"}`}
                 >
                   {tier}
                 </h2>
@@ -1741,7 +1685,7 @@ function MemberPage({ notify }: { notify: (message: string) => void }) {
             ))}
           </div>
           <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_.75fr]">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="overflow-hidden rounded-2xl border border-slate-200">
               <table className="w-full text-left text-sm">
                 <thead className="bg-[#12285C] text-white">
                   <tr>
@@ -1760,7 +1704,7 @@ function MemberPage({ notify }: { notify: (message: string) => void }) {
                     ["Prioritas servis", "—", "—", "✓", "✓"],
                     ["Gratis pengiriman", "—", "—", "—", "✓"],
                   ].map((row) => (
-                    <tr key={row[0]} className="border-b border-slate-100 dark:border-slate-800">
+                    <tr key={row[0]} className="border-b border-slate-100">
                       <td className="p-4 font-semibold">{row[0]}</td>
                       {row.slice(1).map((v, i) => (
                         <td key={i} className="p-4 text-center text-slate-500">
@@ -1777,9 +1721,9 @@ function MemberPage({ notify }: { notify: (message: string) => void }) {
                 e.preventDefault();
                 notify("Pendaftaran member berhasil dikirim.");
               }}
-              className="rounded-2xl bg-[#F4F6FA] p-6 dark:bg-slate-900"
+              className="rounded-2xl bg-[#F4F6FA] p-6"
             >
-              <h2 className="font-heading text-xl font-bold text-[#12285C] dark:text-white">
+              <h2 className="font-heading text-xl font-bold text-[#12285C]">
                 Daftar Member Gratis
               </h2>
               <p className="mt-2 text-sm text-slate-500">
@@ -1869,18 +1813,13 @@ function PromoPage() {
                 { ...promoSlides[1], label: "Trade-in" },
               ])
               .map((promo, i) => (
-                <article
-                  key={i}
-                  className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900"
-                >
+                <article key={i} className="overflow-hidden rounded-2xl border border-slate-200">
                   <div className={`h-36 bg-gradient-to-br ${promo.gradient} p-5 text-white`}>
                     <span className="text-xs font-bold text-white/60">{promo.eyebrow}</span>
                     <h2 className="mt-2 font-heading text-xl font-bold">{promo.label}</h2>
                   </div>
                   <div className="p-5">
-                    <h3 className="font-heading font-bold text-[#12285C] dark:text-white">
-                      {promo.title}
-                    </h3>
+                    <h3 className="font-heading font-bold text-[#12285C]">{promo.title}</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-500">{promo.text}</p>
                     <button
                       onClick={() => go("catalog")}
@@ -1910,15 +1849,15 @@ function AboutPage() {
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div>
               <p className="eyebrow">CERITA KAMI</p>
-              <h2 className="mt-3 font-heading text-3xl font-bold text-[#12285C] dark:text-white">
+              <h2 className="mt-3 font-heading text-3xl font-bold text-[#12285C]">
                 Elektronik berkualitas harus mudah dijangkau siapa saja.
               </h2>
-              <p className="mt-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              <p className="mt-5 text-sm leading-7 text-slate-600">
                 HARTINI ELECTRONIC bermula dari sebuah toko keluarga dengan keyakinan sederhana:
                 pelanggan berhak mendapat penjelasan yang jujur, pilihan yang lengkap, dan layanan
                 yang tetap hadir setelah transaksi selesai.
               </p>
-              <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              <p className="mt-3 text-sm leading-7 text-slate-600">
                 Kini kami melayani pelanggan melalui 20 cabang di 15 provinsi, didukung 440 karyawan
                 dan jaringan layanan purna jual yang terus berkembang.
               </p>
@@ -1930,7 +1869,7 @@ function AboutPage() {
                 ["440", "Karyawan"],
                 ["173+", "Pilihan SKU"],
               ].map(([num, label]) => (
-                <div key={label} className="rounded-2xl bg-[#F4F6FA] p-6 dark:bg-slate-900">
+                <div key={label} className="rounded-2xl bg-[#F4F6FA] p-6">
                   <strong className="font-heading text-4xl text-[#FF7A1A]">{num}</strong>
                   <span className="mt-2 block text-sm font-semibold text-slate-500">{label}</span>
                 </div>
@@ -1955,14 +1894,9 @@ function AboutPage() {
                 "Pilihan produk disesuaikan dengan kebutuhan setiap daerah.",
               ],
             ].map(([Icon, title, text]) => (
-              <div
-                key={title as string}
-                className="rounded-2xl border border-slate-200 p-6 dark:border-slate-800"
-              >
+              <div key={title as string} className="rounded-2xl border border-slate-200 p-6">
                 <Icon className="text-[#FF7A1A]" />
-                <h3 className="mt-4 font-heading font-bold text-[#12285C] dark:text-white">
-                  {title as string}
-                </h3>
+                <h3 className="mt-4 font-heading font-bold text-[#12285C]">{title as string}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-500">{text as string}</p>
               </div>
             ))}
@@ -1995,13 +1929,13 @@ function CareerPage({ notify }: { notify: (m: string) => void }) {
             {jobs.map(([role, location, type]) => (
               <article
                 key={role}
-                className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center"
+                className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-5 sm:flex-row sm:items-center"
               >
-                <span className="grid size-12 place-items-center rounded-xl bg-blue-50 text-[#12285C] dark:bg-blue-950 dark:text-blue-200">
+                <span className="grid size-12 place-items-center rounded-xl bg-blue-50 text-[#12285C]">
                   <BriefcaseBusiness />
                 </span>
                 <div className="flex-1">
-                  <h2 className="font-heading font-bold text-[#12285C] dark:text-white">{role}</h2>
+                  <h2 className="font-heading font-bold text-[#12285C]">{role}</h2>
                   <p className="mt-1 text-xs text-slate-500">
                     {location} • {type}
                   </p>
@@ -2038,16 +1972,14 @@ function ContactPage({ notify }: { notify: (m: string) => void }) {
             ].map(([Icon, label, value]) => (
               <div
                 key={label as string}
-                className="flex items-center gap-4 rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900"
+                className="flex items-center gap-4 rounded-2xl border border-slate-200 p-5"
               >
-                <span className="grid size-11 place-items-center rounded-xl bg-blue-50 text-[#12285C] dark:bg-blue-950 dark:text-blue-200">
+                <span className="grid size-11 place-items-center rounded-xl bg-blue-50 text-[#12285C]">
                   <Icon />
                 </span>
                 <div>
                   <p className="text-xs text-slate-400">{label as string}</p>
-                  <strong className="text-sm text-[#12285C] dark:text-white">
-                    {value as string}
-                  </strong>
+                  <strong className="text-sm text-[#12285C]">{value as string}</strong>
                 </div>
               </div>
             ))}
@@ -2057,11 +1989,9 @@ function ContactPage({ notify }: { notify: (m: string) => void }) {
               e.preventDefault();
               notify("Pesan Anda berhasil dikirim.");
             }}
-            className="rounded-[24px] bg-[#F4F6FA] p-6 dark:bg-slate-900 sm:p-8"
+            className="rounded-[24px] bg-[#F4F6FA] p-6 sm:p-8"
           >
-            <h2 className="font-heading text-xl font-bold text-[#12285C] dark:text-white">
-              Kirim Pesan
-            </h2>
+            <h2 className="font-heading text-xl font-bold text-[#12285C]">Kirim Pesan</h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <input className="field" placeholder="Nama lengkap" required />
               <input className="field" type="email" placeholder="Email" required />
@@ -2120,13 +2050,10 @@ function FaqPage() {
       <section className="section">
         <div className="container max-w-3xl space-y-3">
           {faqs.map(([q, a], i) => (
-            <article
-              key={q}
-              className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900"
-            >
+            <article key={q} className="overflow-hidden rounded-2xl border border-slate-200">
               <button
                 onClick={() => setOpen(open === i ? -1 : i)}
-                className="flex min-h-16 w-full items-center justify-between gap-4 px-5 text-left font-heading text-sm font-bold text-[#12285C] dark:text-white"
+                className="flex min-h-16 w-full items-center justify-between gap-4 px-5 text-left font-heading text-sm font-bold text-[#12285C]"
               >
                 {q}
                 <ChevronDown
@@ -2135,7 +2062,7 @@ function FaqPage() {
                 />
               </button>
               {open === i && (
-                <p className="border-t border-slate-100 px-5 py-4 text-sm leading-6 text-slate-500 dark:border-slate-800">
+                <p className="border-t border-slate-100 px-5 py-4 text-sm leading-6 text-slate-500">
                   {a}
                 </p>
               )}
@@ -2164,14 +2091,12 @@ function PageHero({ title, text }: { title: string; text: string }) {
 
 function EmptyState({ title, text, action }: { title: string; text: string; action?: ReactNode }) {
   return (
-    <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+    <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-slate-300 p-8 text-center">
       <div>
-        <span className="mx-auto grid size-16 place-items-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800">
+        <span className="mx-auto grid size-16 place-items-center rounded-full bg-slate-100 text-slate-400">
           <ShoppingBag size={28} />
         </span>
-        <h2 className="mt-5 font-heading text-xl font-bold text-[#12285C] dark:text-white">
-          {title}
-        </h2>
+        <h2 className="mt-5 font-heading text-xl font-bold text-[#12285C]">{title}</h2>
         <p className="mt-2 text-sm text-slate-500">{text}</p>
         {action && <div className="mt-5">{action}</div>}
       </div>
@@ -2353,7 +2278,7 @@ function ReviewForm({ onSubmit }: { onSubmit: (rating: number, comment: string) 
         e.preventDefault();
         if (rating) onSubmit(rating, comment.trim());
       }}
-      className="mt-3 rounded-xl bg-[#F4F6FA] p-4 dark:bg-slate-800"
+      className="mt-3 rounded-xl bg-[#F4F6FA] p-4"
     >
       <p className="text-xs font-bold text-slate-500">Bagaimana produk ini?</p>
       <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -2388,15 +2313,13 @@ function ProductReviews({ reviews }: { reviews: Review[] }) {
           text="Ulasan hanya dari pembeli yang pesanannya sudah diterima."
         />
         {reviews.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">
+          <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
             Belum ada ulasan untuk produk ini.
           </p>
         ) : (
           <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-            <div className="rounded-2xl bg-[#F4F6FA] p-6 text-center dark:bg-slate-900">
-              <strong className="font-heading text-4xl text-[#12285C] dark:text-white">
-                {avg.toFixed(1)}
-              </strong>
+            <div className="rounded-2xl bg-[#F4F6FA] p-6 text-center">
+              <strong className="font-heading text-4xl text-[#12285C]">{avg.toFixed(1)}</strong>
               <div className="mt-2 flex justify-center">
                 <StarRating value={Math.round(avg)} />
               </div>
@@ -2404,12 +2327,9 @@ function ProductReviews({ reviews }: { reviews: Review[] }) {
             </div>
             <div className="space-y-3">
               {[...reviews].reverse().map((r) => (
-                <article
-                  key={r.id}
-                  className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900"
-                >
+                <article key={r.id} className="rounded-2xl border border-slate-200 p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <strong className="text-sm text-[#12285C] dark:text-white">
+                    <strong className="text-sm text-[#12285C]">
                       {r.customer || "Pembeli HARTINI"}
                     </strong>
                     <span className="text-xs text-slate-400">
@@ -2424,13 +2344,11 @@ function ProductReviews({ reviews }: { reviews: Review[] }) {
                     <StarRating value={r.rating} size={14} />
                   </div>
                   {r.comment && (
-                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                      {r.comment}
-                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{r.comment}</p>
                   )}
                   {r.adminReply && (
-                    <p className="mt-3 rounded-lg bg-[#F4F6FA] p-3 text-xs leading-5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      <strong className="text-[#12285C] dark:text-white">Balasan HARTINI: </strong>
+                    <p className="mt-3 rounded-lg bg-[#F4F6FA] p-3 text-xs leading-5 text-slate-600">
+                      <strong className="text-[#12285C]">Balasan HARTINI: </strong>
                       {r.adminReply}
                     </p>
                   )}
@@ -2485,10 +2403,7 @@ function OrdersPage({
                 ? "Barang telah diterima"
                 : "Barang telah diambil";
             return (
-              <article
-                key={order.id}
-                className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900 sm:p-6"
-              >
+              <article key={order.id} className="rounded-2xl border border-slate-200 p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-extrabold tracking-wider text-[#FF7A1A]">
@@ -2503,7 +2418,7 @@ function OrdersPage({
                       • {order.delivery} • {order.payment}
                     </p>
                   </div>
-                  <strong className="font-heading text-lg text-[#12285C] dark:text-white">
+                  <strong className="font-heading text-lg text-[#12285C]">
                     {formatPrice(order.total)}
                   </strong>
                 </div>
@@ -2512,10 +2427,10 @@ function OrdersPage({
                   {flow.map((label, i) => (
                     <li key={label} className="text-center">
                       <div
-                        className={`h-1.5 rounded-full ${i <= current ? "bg-[#FF7A1A]" : "bg-slate-200 dark:bg-slate-700"}`}
+                        className={`h-1.5 rounded-full ${i <= current ? "bg-[#FF7A1A]" : "bg-slate-200"}`}
                       />
                       <span
-                        className={`mt-2 block text-[11px] font-bold ${i <= current ? "text-[#12285C] dark:text-white" : "text-slate-400"}`}
+                        className={`mt-2 block text-[11px] font-bold ${i <= current ? "text-[#12285C]" : "text-slate-400"}`}
                       >
                         {i === 2
                           ? order.delivery === "Kirim ke alamat"
@@ -2528,7 +2443,7 @@ function OrdersPage({
                 </ol>
 
                 {order.trackingNumber && (
-                  <p className="mt-4 flex items-center gap-2 rounded-lg bg-[#F4F6FA] px-3 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <p className="mt-4 flex items-center gap-2 rounded-lg bg-[#F4F6FA] px-3 py-2 text-xs text-slate-600">
                     <Truck size={14} /> Kurir {order.courier} • No. resi{" "}
                     <strong>{order.trackingNumber}</strong>
                   </p>
@@ -2539,15 +2454,12 @@ function OrdersPage({
                       (r) => r.orderId === order.id && r.productId === item.productId,
                     );
                     return (
-                      <div
-                        key={item.productId}
-                        className="rounded-xl border border-slate-100 p-4 dark:border-slate-800"
-                      >
+                      <div key={item.productId} className="rounded-xl border border-slate-100 p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <button
                               onClick={() => go("detail", item.productId)}
-                              className="text-left text-sm font-bold text-[#12285C] hover:text-[#FF7A1A] dark:text-white"
+                              className="text-left text-sm font-bold text-[#12285C] hover:text-[#FF7A1A]"
                             >
                               {item.name}
                             </button>
@@ -2565,9 +2477,7 @@ function OrdersPage({
                           <div className="mt-2">
                             <StarRating value={review.rating} size={16} />
                             {review.comment && (
-                              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                “{review.comment}”
-                              </p>
+                              <p className="mt-1 text-sm text-slate-600">“{review.comment}”</p>
                             )}
                           </div>
                         )}
@@ -2625,11 +2535,9 @@ const ADMIN_PIN = "admin123"; // demo saja; ganti dengan Supabase Auth + role ad
 
 function AdminStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-2xl border border-slate-200 p-5">
       <p className="text-xs font-bold text-slate-500">{label}</p>
-      <p className="mt-2 font-heading text-2xl font-extrabold text-[#12285C] dark:text-white">
-        {value}
-      </p>
+      <p className="mt-2 font-heading text-2xl font-extrabold text-[#12285C]">{value}</p>
       {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
     </div>
   );
@@ -2649,10 +2557,10 @@ function BarRow({
   return (
     <div>
       <div className="mb-1 flex justify-between gap-3 text-xs">
-        <span className="font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+        <span className="font-semibold text-slate-600">{label}</span>
         <span className="text-slate-500">{text}</span>
       </div>
-      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+      <div className="h-2 rounded-full bg-slate-100">
         <div
           className="h-2 rounded-full bg-[#FF7A1A]"
           style={{ width: `${Math.max(2, (value / max) * 100)}%` }}
@@ -2721,9 +2629,7 @@ function AdminSales({
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="font-heading text-lg font-bold text-[#12285C] dark:text-white">
-          Ringkasan Penjualan 2027
-        </h2>
+        <h2 className="font-heading text-lg font-bold text-[#12285C]">Ringkasan Penjualan 2027</h2>
         <p className="mt-1 text-xs text-slate-500">
           Seluruh cabang • data workbook + pesanan online (menambah) − retur (mengurangi)
         </p>
@@ -2758,10 +2664,8 @@ function AdminSales({
       {report && (
         <>
           <div className="grid gap-6 lg:grid-cols-2">
-            <section className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900">
-              <h3 className="font-heading font-bold text-[#12285C] dark:text-white">
-                Omzet bersih per bulan
-              </h3>
+            <section className="rounded-2xl border border-slate-200 p-5">
+              <h3 className="font-heading font-bold text-[#12285C]">Omzet bersih per bulan</h3>
               <div
                 className="mt-5 flex h-48 items-end gap-1.5"
                 role="img"
@@ -2774,7 +2678,7 @@ function AdminSales({
                     title={`${MONTHS[i]}: ${rpShort(m.net)}`}
                   >
                     <div
-                      className="w-full rounded-t-md bg-[#12285C] transition group-hover:bg-[#FF7A1A] dark:bg-blue-400"
+                      className="w-full rounded-t-md bg-[#12285C] transition group-hover:bg-[#FF7A1A]"
                       style={{
                         height: `${Math.max(2, (m.net / Math.max(...monthly.map((x) => x.net), 1)) * 88)}%`,
                       }}
@@ -2786,10 +2690,8 @@ function AdminSales({
                 ))}
               </div>
             </section>
-            <section className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900">
-              <h3 className="font-heading font-bold text-[#12285C] dark:text-white">
-                Omzet bersih per kategori
-              </h3>
+            <section className="rounded-2xl border border-slate-200 p-5">
+              <h3 className="font-heading font-bold text-[#12285C]">Omzet bersih per kategori</h3>
               <div className="mt-4 space-y-3">
                 {cats.map(([name, c]) => (
                   <BarRow
@@ -2804,13 +2706,13 @@ function AdminSales({
             </section>
           </div>
 
-          <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-            <h3 className="p-5 font-heading font-bold text-[#12285C] dark:text-white">
+          <section className="overflow-hidden rounded-2xl border border-slate-200">
+            <h3 className="p-5 font-heading font-bold text-[#12285C]">
               Cabang dengan omzet bersih tertinggi
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">
-                <thead className="bg-[#F4F6FA] text-xs text-slate-500 dark:bg-slate-900">
+                <thead className="bg-[#F4F6FA] text-xs text-slate-500">
                   <tr>
                     <th className="p-3">Cabang</th>
                     <th className="p-3 text-right">Transaksi</th>
@@ -2820,7 +2722,7 @@ function AdminSales({
                 </thead>
                 <tbody>
                   {perBranch.slice(0, 8).map((b) => (
-                    <tr key={b.name} className="border-t border-slate-100 dark:border-slate-800">
+                    <tr key={b.name} className="border-t border-slate-100">
                       <td className="p-3 font-semibold">{b.name}</td>
                       <td className="p-3 text-right">{b.trx.toLocaleString("id-ID")}</td>
                       <td className="p-3 text-right text-slate-500">{rpShort(b.returns)}</td>
@@ -2837,9 +2739,7 @@ function AdminSales({
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-heading text-lg font-bold text-[#12285C] dark:text-white">
-              Pesanan Toko Online
-            </h2>
+            <h2 className="font-heading text-lg font-bold text-[#12285C]">Pesanan Toko Online</h2>
             <p className="mt-1 text-xs text-slate-500">
               {orders.length} pesanan • {formatPrice(onlineRevenue)} — setiap pesanan baru otomatis
               menambah omzet cabangnya
@@ -2862,7 +2762,7 @@ function AdminSales({
           </div>
         </div>
         {best.length > 0 && (
-          <div className="mt-4 rounded-2xl bg-[#F4F6FA] p-5 dark:bg-slate-900">
+          <div className="mt-4 rounded-2xl bg-[#F4F6FA] p-5">
             <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wide text-slate-500">
               Produk terlaris online
             </h3>
@@ -2879,7 +2779,7 @@ function AdminSales({
             </div>
           </div>
         )}
-        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
           {shown.length === 0 ? (
             <p className="p-6 text-sm text-slate-500">
               Belum ada pesanan. Gunakan checkout atau “Tambah data contoh”.
@@ -2887,7 +2787,7 @@ function AdminSales({
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px] text-left text-sm">
-                <thead className="bg-[#F4F6FA] text-xs text-slate-500 dark:bg-slate-900">
+                <thead className="bg-[#F4F6FA] text-xs text-slate-500">
                   <tr>
                     <th className="p-3">No. pesanan</th>
                     <th className="p-3">Pembeli</th>
@@ -2899,15 +2799,15 @@ function AdminSales({
                 </thead>
                 <tbody>
                   {shown.map((o) => (
-                    <tr key={o.id} className="border-t border-slate-100 dark:border-slate-800">
-                      <td className="p-3 font-bold text-[#12285C] dark:text-white">{o.id}</td>
+                    <tr key={o.id} className="border-t border-slate-100">
+                      <td className="p-3 font-bold text-[#12285C]">{o.id}</td>
                       <td className="p-3">{o.customer || "-"}</td>
                       <td className="p-3 text-slate-500">{o.branch || "Jakarta"}</td>
                       <td className="p-3 text-slate-500">
                         {o.items.reduce((sum, i) => sum + i.qty, 0)} unit
                       </td>
                       <td className="p-3">
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold dark:bg-slate-800">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold">
                           {o.status}
                         </span>
                       </td>
@@ -2970,10 +2870,8 @@ function AdminReviews({
         <AdminStat label="Disembunyikan" value={String(reviews.filter((r) => r.hidden).length)} />
       </div>
       {perProduct.length > 0 && (
-        <section className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="font-heading font-bold text-[#12285C] dark:text-white">
-            Rating per produk
-          </h3>
+        <section className="rounded-2xl border border-slate-200 p-5">
+          <h3 className="font-heading font-bold text-[#12285C]">Rating per produk</h3>
           <div className="mt-4 space-y-3">
             {perProduct
               .sort((a, b) => b.avg - a.avg)
@@ -3020,13 +2918,11 @@ function AdminReviews({
           {shown.map((r) => (
             <article
               key={r.id}
-              className={`rounded-2xl border p-5 dark:bg-slate-900 ${r.hidden ? "border-dashed border-slate-300 opacity-70 dark:border-slate-700" : "border-slate-200 dark:border-slate-800"}`}
+              className={`rounded-2xl border p-5 ${r.hidden ? "border-dashed border-slate-300 opacity-70" : "border-slate-200"}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-bold text-[#12285C] dark:text-white">
-                    {nameOf(r.productId)}
-                  </p>
+                  <p className="text-sm font-bold text-[#12285C]">{nameOf(r.productId)}</p>
                   <p className="mt-0.5 text-xs text-slate-500">
                     {r.customer || "Pembeli"} • {r.orderId} •{" "}
                     {new Date(r.createdAt).toLocaleDateString("id-ID")}
@@ -3034,11 +2930,9 @@ function AdminReviews({
                 </div>
                 <StarRating value={r.rating} size={16} />
               </div>
-              {r.comment && (
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">“{r.comment}”</p>
-              )}
+              {r.comment && <p className="mt-2 text-sm text-slate-600">“{r.comment}”</p>}
               {r.adminReply && replying !== r.id && (
-                <p className="mt-3 rounded-lg bg-[#F4F6FA] p-3 text-xs dark:bg-slate-800">
+                <p className="mt-3 rounded-lg bg-[#F4F6FA] p-3 text-xs">
                   <strong>Balasan: </strong>
                   {r.adminReply}
                 </p>
@@ -3134,11 +3028,9 @@ function ReturnDialog({
           e.preventDefault();
           onConfirm(qty, reason);
         }}
-        className="w-full max-w-md rounded-2xl bg-white p-6 dark:bg-slate-900"
+        className="w-full max-w-md rounded-2xl bg-white p-6"
       >
-        <h3 className="font-heading text-lg font-bold text-[#12285C] dark:text-white">
-          Proses Retur
-        </h3>
+        <h3 className="font-heading text-lg font-bold text-[#12285C]">Proses Retur</h3>
         <p className="mt-1 text-xs text-slate-500">{title}</p>
         <label className="mt-4 block text-xs font-bold text-slate-500">
           Jumlah unit diretur (maks. {maxQty})
@@ -3159,7 +3051,7 @@ function ReturnDialog({
             ))}
           </select>
         </label>
-        <p className="mt-4 rounded-lg bg-[#F4F6FA] p-3 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <p className="mt-4 rounded-lg bg-[#F4F6FA] p-3 text-xs text-slate-600">
           Pengembalian dana <strong>{formatPrice(Math.round(unit * qty))}</strong> akan mengurangi
           omzet cabang dan laporan keuangan.
         </p>
@@ -3175,7 +3067,7 @@ function ReturnDialog({
 }
 
 const statusBadge: Record<string, string> = {
-  Diproses: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  Diproses: "bg-slate-100 text-slate-600",
   "Dalam Pengiriman": "bg-blue-50 text-blue-700",
   "Siap Diambil": "bg-amber-50 text-amber-700",
   Selesai: "bg-emerald-50 text-emerald-700",
@@ -3200,13 +3092,11 @@ function ShipmentCard({
   const ship = order.delivery === "Kirim ke alamat";
   const now = () => new Date().toISOString();
   return (
-    <article className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800 dark:bg-slate-900">
+    <article className="rounded-2xl border border-slate-200 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold tracking-wider text-[#FF7A1A]">{order.id}</p>
-          <p className="mt-1 text-sm font-bold text-[#12285C] dark:text-white">
-            {order.customer || "Pembeli"}
-          </p>
+          <p className="mt-1 text-sm font-bold text-[#12285C]">{order.customer || "Pembeli"}</p>
           <p className="mt-0.5 text-xs text-slate-500">
             {order.branch || "Jakarta"} • {order.delivery} • {order.payment} •{" "}
             {new Date(order.createdAt).toLocaleDateString("id-ID")}
@@ -3218,7 +3108,7 @@ function ShipmentCard({
           {order.status}
         </span>
       </div>
-      <ul className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+      <ul className="mt-3 space-y-1 text-xs text-slate-600">
         {order.items.map((i) => {
           const done = ledger.returnedQty[`${order.id}|${i.productId}`] || 0;
           const left = i.qty - done;
@@ -3438,10 +3328,10 @@ function TxShipping({
           ))}
         </select>
       </div>
-      <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+      <div className="overflow-hidden rounded-2xl border border-slate-200">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="bg-[#F4F6FA] text-xs text-slate-500 dark:bg-slate-900">
+            <thead className="bg-[#F4F6FA] text-xs text-slate-500">
               <tr>
                 <th className="p-3">Transaksi</th>
                 <th className="p-3">Produk</th>
@@ -3459,9 +3349,9 @@ function TxShipping({
                 const returned = ledger.returnedQty[`${m.t.trx}|${m.t.sku}`] || 0;
                 const left = m.t.qty - returned;
                 return (
-                  <tr key={m.t.trx} className="border-t border-slate-100 dark:border-slate-800">
+                  <tr key={m.t.trx} className="border-t border-slate-100">
                     <td className="p-3">
-                      <strong className="block text-[#12285C] dark:text-white">{m.t.trx}</strong>
+                      <strong className="block text-[#12285C]">{m.t.trx}</strong>
                       <span className="text-xs text-slate-400">{fmtDate(m.t.serial)}</span>
                     </td>
                     <td className="max-w-[240px] p-3">
@@ -3606,7 +3496,7 @@ function AdminShipping({
             role="tab"
             aria-selected={source === x}
             onClick={() => setSource(x)}
-            className={`rounded-lg px-4 py-2 text-xs font-bold ${source === x ? "bg-[#FF7A1A] text-white" : "bg-[#F4F6FA] text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}
+            className={`rounded-lg px-4 py-2 text-xs font-bold ${source === x ? "bg-[#FF7A1A] text-white" : "bg-[#F4F6FA] text-slate-600"}`}
           >
             {x}
             {x === "Pesanan Online" && ` (${orders.length})`}
@@ -3690,10 +3580,10 @@ function AdminReturns({ ledger }: { ledger: Ledger }) {
           text="Proses retur dari tab Pengiriman pada transaksi berstatus Selesai."
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+        <div className="overflow-hidden rounded-2xl border border-slate-200">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-[#F4F6FA] text-xs text-slate-500 dark:bg-slate-900">
+              <thead className="bg-[#F4F6FA] text-xs text-slate-500">
                 <tr>
                   <th className="p-3">Tanggal</th>
                   <th className="p-3">Referensi</th>
@@ -3707,12 +3597,12 @@ function AdminReturns({ ledger }: { ledger: Ledger }) {
               </thead>
               <tbody>
                 {ledger.returns.map((r) => (
-                  <tr key={r.id} className="border-t border-slate-100 dark:border-slate-800">
+                  <tr key={r.id} className="border-t border-slate-100">
                     <td className="p-3 text-xs text-slate-500">
                       {new Date(r.date).toLocaleDateString("id-ID")}
                     </td>
                     <td className="p-3">
-                      <strong className="block text-[#12285C] dark:text-white">{r.ref}</strong>
+                      <strong className="block text-[#12285C]">{r.ref}</strong>
                       <span className="text-xs text-slate-400">
                         {r.source === "toko" ? "Toko" : "Online"}
                       </span>
@@ -3820,7 +3710,7 @@ function AdminFinance({ report }: { report: Report | null }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-heading text-lg font-bold text-[#12285C] dark:text-white">{title}</h2>
+          <h2 className="font-heading text-lg font-bold text-[#12285C]">{title}</h2>
           <p className="mt-1 text-xs text-slate-500">
             Laporan laba rugi • {periodLabel} • termasuk pesanan online & retur
           </p>
@@ -3877,20 +3767,16 @@ function AdminFinance({ report }: { report: Report | null }) {
         />
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-        <h3 className="p-5 font-heading font-bold text-[#12285C] dark:text-white">
-          Laporan Laba Rugi
-        </h3>
+      <section className="overflow-hidden rounded-2xl border border-slate-200">
+        <h3 className="p-5 font-heading font-bold text-[#12285C]">Laporan Laba Rugi</h3>
         <table className="w-full text-sm">
           <tbody>
             {statement.map(([label, value, bold]) => (
               <tr
                 key={label}
-                className={`border-t border-slate-100 dark:border-slate-800 ${bold ? "bg-[#F4F6FA] font-bold dark:bg-slate-900" : ""}`}
+                className={`border-t border-slate-100 ${bold ? "bg-[#F4F6FA] font-bold" : ""}`}
               >
-                <td className={`p-3 ${bold ? "" : "pl-6 text-slate-600 dark:text-slate-300"}`}>
-                  {label}
-                </td>
+                <td className={`p-3 ${bold ? "" : "pl-6 text-slate-600"}`}>{label}</td>
                 <td className={`p-3 text-right tabular-nums ${neg(value)}`}>
                   {formatPrice(Math.round(value))}
                 </td>
@@ -3900,11 +3786,11 @@ function AdminFinance({ report }: { report: Report | null }) {
         </table>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-        <h3 className="p-5 font-heading font-bold text-[#12285C] dark:text-white">Rekap Bulanan</h3>
+      <section className="overflow-hidden rounded-2xl border border-slate-200">
+        <h3 className="p-5 font-heading font-bold text-[#12285C]">Rekap Bulanan</h3>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="bg-[#F4F6FA] text-xs text-slate-500 dark:bg-slate-900">
+            <thead className="bg-[#F4F6FA] text-xs text-slate-500">
               <tr>
                 <th className="p-3">Bulan</th>
                 <th className={th}>Omzet bersih</th>
@@ -3918,7 +3804,7 @@ function AdminFinance({ report }: { report: Report | null }) {
               {monthRows.map((r) => (
                 <tr
                   key={r.m}
-                  className={`border-t border-slate-100 dark:border-slate-800 ${period !== "Setahun" && MONTHS[Number(period)] !== r.m ? "opacity-40" : ""}`}
+                  className={`border-t border-slate-100 ${period !== "Setahun" && MONTHS[Number(period)] !== r.m ? "opacity-40" : ""}`}
                 >
                   <td className="p-3 font-semibold">{r.m}</td>
                   <td className="p-3 text-right tabular-nums">{formatPrice(r.net)}</td>
@@ -3936,7 +3822,7 @@ function AdminFinance({ report }: { report: Report | null }) {
                   </td>
                 </tr>
               ))}
-              <tr className="border-t-2 border-slate-200 bg-[#F4F6FA] font-bold dark:border-slate-700 dark:bg-slate-900">
+              <tr className="border-t-2 border-slate-200 bg-[#F4F6FA] font-bold">
                 <td className="p-3">Total {period === "Setahun" ? "tahun" : periodLabel}</td>
                 <td className="p-3 text-right tabular-nums">{formatPrice(p.net)}</td>
                 <td className="p-3 text-right tabular-nums">{formatPrice(Math.round(p.hpp))}</td>
@@ -3954,8 +3840,8 @@ function AdminFinance({ report }: { report: Report | null }) {
       </section>
 
       {scope === "Semua" && (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-          <h3 className="p-5 font-heading font-bold text-[#12285C] dark:text-white">
+        <section className="overflow-hidden rounded-2xl border border-slate-200">
+          <h3 className="p-5 font-heading font-bold text-[#12285C]">
             Perbandingan Tiap Cabang{" "}
             <span className="text-xs font-normal text-slate-400">
               (klik nama untuk membuka laporan cabang)
@@ -3963,7 +3849,7 @@ function AdminFinance({ report }: { report: Report | null }) {
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm">
-              <thead className="bg-[#F4F6FA] text-xs text-slate-500 dark:bg-slate-900">
+              <thead className="bg-[#F4F6FA] text-xs text-slate-500">
                 <tr>
                   <th className="p-3">Cabang</th>
                   <th className={th}>Omzet bersih</th>
@@ -3976,11 +3862,11 @@ function AdminFinance({ report }: { report: Report | null }) {
               </thead>
               <tbody>
                 {branchRows.map((r) => (
-                  <tr key={r.b} className="border-t border-slate-100 dark:border-slate-800">
+                  <tr key={r.b} className="border-t border-slate-100">
                     <td className="p-3">
                       <button
                         onClick={() => setScope(r.b)}
-                        className="min-h-9 font-bold text-[#12285C] hover:text-[#FF7A1A] dark:text-white"
+                        className="min-h-9 font-bold text-[#12285C] hover:text-[#FF7A1A]"
                       >
                         {r.b}
                       </button>
@@ -4005,7 +3891,7 @@ function AdminFinance({ report }: { report: Report | null }) {
                     </td>
                   </tr>
                 ))}
-                <tr className="border-t-2 border-slate-200 bg-[#F4F6FA] font-bold dark:border-slate-700 dark:bg-slate-900">
+                <tr className="border-t-2 border-slate-200 bg-[#F4F6FA] font-bold">
                   <td className="p-3">Total seluruh cabang</td>
                   <td className="p-3 text-right tabular-nums">{formatPrice(p.net)}</td>
                   <td className="p-3 text-right tabular-nums">{formatPrice(p.returns)}</td>
@@ -4068,11 +3954,9 @@ function AdminPage({
                 setAuthed(true);
               } else setError(true);
             }}
-            className="container max-w-sm rounded-2xl border border-slate-200 p-6 dark:border-slate-800 dark:bg-slate-900"
+            className="container max-w-sm rounded-2xl border border-slate-200 p-6"
           >
-            <h2 className="font-heading text-lg font-bold text-[#12285C] dark:text-white">
-              Masuk Admin
-            </h2>
+            <h2 className="font-heading text-lg font-bold text-[#12285C]">Masuk Admin</h2>
             <input
               type="password"
               value={pin}
@@ -4117,7 +4001,7 @@ function AdminPage({
                   role="tab"
                   aria-selected={tab === t}
                   onClick={() => setTab(t)}
-                  className={`shrink-0 rounded-xl px-5 py-3 text-sm font-bold ${tab === t ? "bg-[#12285C] text-white" : "bg-[#F4F6FA] text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}
+                  className={`shrink-0 rounded-xl px-5 py-3 text-sm font-bold ${tab === t ? "bg-[#12285C] text-white" : "bg-[#F4F6FA] text-slate-600"}`}
                 >
                   {t}
                 </button>
@@ -4184,7 +4068,6 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [pageData, setPageData] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [dark, setDark] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
@@ -4195,9 +4078,6 @@ export default function App() {
     const timer = setTimeout(() => setLoading(false), 650);
     return () => clearTimeout(timer);
   }, []);
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
   useEffect(() => {
     globalNavigate = (next, data = "") => {
       setPage(next);
@@ -4366,8 +4246,8 @@ export default function App() {
     ),
   };
   return (
-    <div className="min-h-screen bg-white text-slate-700 transition-colors dark:bg-slate-950 dark:text-slate-200">
-      <Header cartCount={cartCount} dark={dark} setDark={setDark} />
+    <div className="min-h-screen bg-white text-slate-700 transition-colors">
+      <Header cartCount={cartCount} />
       {loading ? <SkeletonPage /> : pages[page]}
       {!loading && <Footer />}
       <a
