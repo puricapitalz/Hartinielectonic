@@ -50,6 +50,7 @@ import {
   Zap,
 } from "lucide-react";
 import { branches, categories, formatPrice, products, type Product } from "./data";
+import AdminExecutive from "./AdminExecutive";
 import {
   MONTHS,
   buildReport,
@@ -3929,7 +3930,7 @@ function AdminPage({
   const [authed, setAuthed] = useState(() => sessionStorage.getItem("hartini.admin") === "1");
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
-  const [tab, setTab] = useState("Data Penjualan");
+  const [tab, setTab] = useState("Dasbor Direksi");
   const [notice, setNotice] = useState("");
   const { db, error: dbError } = useSalesDb();
   const ledger = useLedgerStore();
@@ -3984,7 +3985,14 @@ function AdminPage({
         </section>
       </main>
     );
-  const tabs = ["Data Penjualan", "Review Barang", "Pengiriman", "Retur", "Laporan Keuangan"];
+  const tabs = [
+    "Dasbor Direksi",
+    "Data Penjualan",
+    "Review Barang",
+    "Pengiriman",
+    "Retur",
+    "Laporan Keuangan",
+  ];
   return (
     <main>
       <PageHero
@@ -4027,6 +4035,18 @@ function AdminPage({
               <Check size={14} /> {notice}
             </p>
           )}
+          {tab === "Dasbor Direksi" &&
+            (dbError || !db || !report ? (
+              <LoadingBlock error={dbError} />
+            ) : (
+              <AdminExecutive
+                db={db}
+                report={report}
+                orders={orders}
+                reviews={reviews}
+                returns={ledger.returns}
+              />
+            ))}
           {tab === "Data Penjualan" && (
             <AdminSales report={dbError ? null : report} orders={orders} onDemo={addDemo} />
           )}
