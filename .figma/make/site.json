@@ -1,0 +1,12 @@
+{
+  "title": "HARTINI ELECTRONIC — Elektronik Lengkap, Dekat di Rumah Anda",
+  "description": "Jelajahi dan beli elektronik serta perlengkapan rumah tangga, temukan promo, simulasi cicilan, dan cabang terdekat dari HARTINI ELECTRONIC.",
+  "language": "id",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": true,
+    "ignoreReducedMotion": false
+  }
+}
