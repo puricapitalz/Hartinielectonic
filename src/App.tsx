@@ -49,14 +49,42 @@ import {
   Play,
   Zap,
 } from "lucide-react";
-import { branches, categories, formatPrice, products, type Product } from "./data";
+import {
+  branches,
+  categories,
+  formatPrice,
+  params,
+  pointsFor,
+  products,
+  tariffs,
+  tierFor,
+  type Product,
+} from "./data";
 import AdminExecutive from "./AdminExecutive";
+import { AdminCustomers, AdminRecon, AdminStock } from "./AdminExtra";
+import {
+  GOOGLE_CLIENT_ID,
+  findByEmail,
+  membershipOf,
+  nextCustomerId,
+  renderGoogleButton,
+  saveAccount,
+  signInAs,
+  signOut,
+  useCustomer,
+  useExcelCustomers,
+  type Customer,
+  type GoogleProfile,
+} from "./auth";
+import { useRef } from "react";
 import {
   MONTHS,
   buildReport,
   downloadCsv,
   pnl,
   serialToDate,
+  isCountedReturn,
+  scopeDb,
   txMeta,
   useLedgerStore,
   useSalesDb,
@@ -67,11 +95,10 @@ import {
 } from "./finance";
 import {
   loadOrders,
-  loadReviews,
+  useReviews,
   newOrderId,
   nextStatus,
   saveOrders,
-  saveReviews,
   type Order,
   type Review,
 } from "./orders";
@@ -91,6 +118,7 @@ type Page =
   | "contact"
   | "faq"
   | "orders"
+  | "account"
   | "admin";
 
 type CartItem = { product: Product; qty: number };
@@ -125,7 +153,7 @@ const promoSlides = [
   {
     eyebrow: "PROMO KELUARGA HARTINI",
     title: "Rumah makin lengkap, hati makin tenang.",
-    text: "Diskon hingga 30% untuk elektronik rumah tangga pilihan dan gratis pengiriman hingga 20 km.",
+    text: "Diskon hingga 15% untuk elektronik rumah tangga pilihan. Ambil di toko gratis, kirim ke rumah mulai Rp75.000.",
     label: "Promo Lebaran",
     gradient: "from-[#12285C] via-[#173875] to-[#2258A6]",
   },
@@ -133,13 +161,13 @@ const promoSlides = [
     eyebrow: "HARBOLNAS 12.12",
     title: "Harga spesial, waktunya upgrade.",
     text: "Flash sale smartphone, laptop, dan smart TV dengan stok terbatas di seluruh cabang.",
-    label: "Diskon s.d. 35%",
+    label: "Diskon s.d. 15%",
     gradient: "from-[#7A2B13] via-[#C14D18] to-[#FF7A1A]",
   },
   {
     eyebrow: "CICILAN 0%",
     title: "Bawa pulang sekarang, bayar lebih ringan.",
-    text: "Tenor 3, 6, atau 12 bulan untuk produk pilihan dengan kartu bank partner.",
+    text: "Tenor 3, 6, atau 12 bulan bunga 0% lewat bank, multifinance, atau kredit internal toko.",
     label: "Mulai Rp 200 ribuan",
     gradient: "from-[#0A4F4A] via-[#087C72] to-[#14A897]",
   },
@@ -236,6 +264,7 @@ function Header({ cartCount }: { cartCount: number }) {
             ))}
           </nav>
           <div className="flex items-center gap-1">
+            <AccountButton />
             <button onClick={() => go("orders")} className="icon-button" aria-label="Pesanan saya">
               <ClipboardList size={20} />
             </button>
@@ -340,6 +369,20 @@ function ProductVisual({ product, className = "" }: { product: Product; classNam
   );
 }
 
+function StockLabel({ product }: { product: Product }) {
+  if (product.stock <= 0) return <span className="font-semibold text-red-600">Stok habis</span>;
+  if (product.stock <= product.stockMin)
+    return <span className="font-semibold text-orange-600">Sisa {product.stock}</span>;
+  return <span className="font-semibold text-emerald-600">Stok tersedia</span>;
+}
+
+/** Urutan terlaris = unit terjual di sheet Analisis Produk. */
+const bestSellers = [...products].sort((a, b) => b.sold - a.sold);
+/** Kandidat promo = stok berlebih (status OVERSTOCK di sheet Stok Inventory). */
+const overstock = products
+  .filter((p) => p.stockStatus === "OVERSTOCK")
+  .sort((a, b) => b.cover - a.cover);
+
 function ProductCard({
   product,
   addToCart,
@@ -351,9 +394,11 @@ function ProductCard({
     <article className="product-card group">
       <div className="relative">
         <ProductVisual product={product} className="aspect-[4/3] w-full" />
-        <span className="absolute left-3 top-3 rounded-lg bg-[#FF7A1A] px-2.5 py-1 text-[11px] font-extrabold text-white">
-          -{product.discount}%
-        </span>
+        {product.abc === "A" && (
+          <span className="absolute left-3 top-3 rounded-lg bg-[#FF7A1A] px-2.5 py-1 text-[11px] font-extrabold text-white">
+            Terlaris
+          </span>
+        )}
         <button
           className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white/90 text-slate-500 opacity-0 shadow-sm transition group-hover:opacity-100"
           aria-label="Simpan produk"
@@ -364,11 +409,7 @@ function ProductCard({
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-2 flex items-center justify-between gap-2 text-[11px]">
           <span className="font-bold uppercase tracking-wide text-slate-400">{product.brand}</span>
-          <span
-            className={`font-semibold ${product.stock <= 5 ? "text-orange-600" : "text-emerald-600"}`}
-          >
-            {product.stock <= 5 ? `Sisa ${product.stock}` : "Stok tersedia"}
-          </span>
+          <StockLabel product={product} />
         </div>
         <button
           onClick={() => go("detail", product.id)}
@@ -377,23 +418,32 @@ function ProductCard({
           {product.name}
         </button>
         <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
-          <Star size={13} className="fill-amber-400 text-amber-400" /> {product.rating.toFixed(1)}{" "}
+          {product.reviewCount > 0 ? (
+            <>
+              <Star size={13} className="fill-amber-400 text-amber-400" />{" "}
+              {product.rating.toFixed(1)}
+              <span className="text-slate-400">({product.reviewCount})</span>
+            </>
+          ) : (
+            <span>Belum ada ulasan</span>
+          )}
           <span className="text-slate-300">•</span> {product.sold.toLocaleString("id-ID")} terjual
         </div>
         <div className="mt-3">
           <p className="font-heading text-base font-extrabold text-[#12285C]">
             {formatPrice(product.price)}
           </p>
-          <p className="text-xs text-slate-400 line-through">
-            {formatPrice(product.originalPrice)}
-          </p>
         </div>
         <div className="mt-3 inline-flex w-fit items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
           <CreditCard size={11} /> Cicilan 0%
         </div>
         <div className="mt-4 grid grid-cols-[1fr_44px] gap-2">
-          <Button onClick={() => addToCart(product)} className="px-2 text-xs">
-            <ShoppingCart size={15} /> Tambah
+          <Button
+            onClick={() => addToCart(product)}
+            disabled={product.stock <= 0}
+            className="px-2 text-xs"
+          >
+            <ShoppingCart size={15} /> {product.stock <= 0 ? "Habis" : "Tambah"}
           </Button>
           <a
             href={`https://wa.me/628111234567?text=${encodeURIComponent(`Halo HARTINI, saya tertarik dengan ${product.name}`)}`}
@@ -546,7 +596,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
             }
           />
           <div className="product-grid">
-            {products.slice(0, 8).map((product) => (
+            {bestSellers.slice(0, 8).map((product) => (
               <ProductCard key={product.id} product={product} addToCart={addToCart} />
             ))}
           </div>
@@ -569,7 +619,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
             }
           />
           <div className="product-grid">
-            {products.slice(12, 16).map((product) => (
+            {overstock.slice(0, 4).map((product) => (
               <ProductCard key={product.id} product={product} addToCart={addToCart} />
             ))}
           </div>
@@ -798,12 +848,13 @@ function CatalogPage({
           `${p.name} ${p.brand} ${p.category}`.toLowerCase().includes(query.toLowerCase())) &&
         (category === "Semua" || p.category === category) &&
         (brand === "Semua" || p.brand === brand) &&
-        (!discountOnly || p.discount >= 15) &&
-        (!inStock || p.stock > 5),
+        (!discountOnly || p.rating >= 4) &&
+        (!inStock || p.stock > 0),
     );
     if (sort === "Termurah") result = [...result].sort((a, b) => a.price - b.price);
     if (sort === "Termahal") result = [...result].sort((a, b) => b.price - a.price);
-    if (sort === "Terbaru") result = [...result].sort((a, b) => Number(b.isNew) - Number(a.isNew));
+    if (sort === "Rating tertinggi")
+      result = [...result].sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
     if (sort === "Terlaris") result = [...result].sort((a, b) => b.sold - a.sold);
     return result;
   }, [query, category, brand, sort, discountOnly, inStock]);
@@ -837,7 +888,7 @@ function CatalogPage({
           checked={discountOnly}
           onChange={(e) => setDiscountOnly(e.target.checked)}
         />{" "}
-        Diskon 15% ke atas
+        Rating 4 ke atas
       </label>
       <label className="filter-check">
         <input type="checkbox" checked={inStock} onChange={(e) => setInStock(e.target.checked)} />{" "}
@@ -878,7 +929,7 @@ function CatalogPage({
               <option>Terlaris</option>
               <option>Termurah</option>
               <option>Termahal</option>
-              <option>Terbaru</option>
+              <option>Rating tertinggi</option>
             </select>
           </div>
         </div>
@@ -1005,8 +1056,14 @@ function ProductDetailPage({
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500">
               <span className="flex items-center gap-1">
-                <Star className="fill-amber-400 text-amber-400" size={16} />{" "}
-                {product.rating.toFixed(1)}
+                {product.reviewCount > 0 ? (
+                  <>
+                    <Star className="fill-amber-400 text-amber-400" size={16} />{" "}
+                    {product.rating.toFixed(1)} ({product.reviewCount} ulasan)
+                  </>
+                ) : (
+                  "Belum ada ulasan"
+                )}
               </span>
               <span>•</span>
               <span>{product.sold.toLocaleString("id-ID")} terjual</span>
@@ -1014,30 +1071,31 @@ function ProductDetailPage({
               <span>SKU {product.id}</span>
             </div>
             <div className="mt-7 rounded-2xl bg-[#F4F6FA] p-5">
-              <div className="flex items-center gap-3">
-                <span className="rounded-lg bg-[#FF7A1A] px-2.5 py-1 text-xs font-bold text-white">
-                  -{product.discount}%
-                </span>
-                <span className="text-sm text-slate-400 line-through">
-                  {formatPrice(product.originalPrice)}
-                </span>
-              </div>
-              <p className="mt-2 font-heading text-3xl font-extrabold text-[#12285C]">
+              <p className="font-heading text-3xl font-extrabold text-[#12285C]">
                 {formatPrice(product.price)}
               </p>
               <button
                 onClick={() => go("installment", product.id)}
                 className="mt-3 flex items-center gap-2 text-sm font-bold text-blue-700"
               >
-                <CreditCard size={17} /> Cicilan mulai {formatPrice(Math.ceil(product.price / 24))}
+                <CreditCard size={17} /> Cicilan 0% mulai{" "}
+                {formatPrice(Math.ceil(product.price / 12))}
                 /bulan <ChevronRight size={15} />
               </button>
             </div>
             <div className="mt-6 space-y-3">
               {[
                 [ShieldCheck, `Garansi resmi ${product.warranty} bulan`],
-                [PackageCheck, "Stok tersedia di 14 cabang"],
-                [Truck, "Gratis kirim hingga 20 km"],
+                [
+                  PackageCheck,
+                  product.stock > 0
+                    ? `Stok gudang ${product.stock.toLocaleString("id-ID")} unit`
+                    : "Stok habis, sedang dipesan ke supplier",
+                ],
+                [
+                  Truck,
+                  `Ongkir dalam kota ${formatPrice(tariffs[0].fee)}, atau ambil gratis di toko`,
+                ],
               ].map(([Icon, text]) => (
                 <div
                   key={text as string}
@@ -1070,9 +1128,11 @@ function ProductDetailPage({
                 onClick={() => {
                   for (let i = 0; i < qty; i++) addToCart(product);
                 }}
+                disabled={product.stock <= 0}
                 className="flex-1"
               >
-                <ShoppingCart size={18} /> Tambah ke Keranjang
+                <ShoppingCart size={18} />{" "}
+                {product.stock <= 0 ? "Stok habis" : "Tambah ke Keranjang"}
               </Button>
             </div>
             <a
@@ -1089,7 +1149,7 @@ function ProductDetailPage({
       <section className="border-y border-slate-200 bg-[#F8F9FB] py-12">
         <div className="container">
           <div className="flex gap-2 overflow-x-auto">
-            {["Spesifikasi", "Pilihan Cicilan", "Stok per Cabang"].map((tab) => (
+            {["Spesifikasi", "Pilihan Cicilan", "Ketersediaan"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -1106,6 +1166,7 @@ function ProductDetailPage({
                 <Spec label="Merek" value={product.brand} />
                 <Spec label="Kategori" value={product.category} />
                 <Spec label="Garansi" value={`${product.warranty} bulan`} />
+                <Spec label="Supplier" value={product.supplier} />
               </div>
             )}
             {activeTab === "Pilihan Cicilan" && (
@@ -1121,19 +1182,21 @@ function ProductDetailPage({
                 ))}
               </div>
             )}
-            {activeTab === "Stok per Cabang" && (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {branches.slice(0, 8).map((branch, i) => (
-                  <div
-                    key={branch.code}
-                    className="flex items-center justify-between rounded-xl border border-slate-100 p-4 text-sm"
-                  >
-                    <span>{branch.name}</span>
-                    <strong className={i % 4 === 0 ? "text-orange-600" : "text-emerald-600"}>
-                      {i % 4 === 0 ? "Sisa 2" : "Tersedia"}
-                    </strong>
-                  </div>
-                ))}
+            {activeTab === "Ketersediaan" && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Spec
+                  label="Stok gudang saat ini"
+                  value={`${product.stock.toLocaleString("id-ID")} unit`}
+                />
+                <Spec
+                  label="Stok minimum"
+                  value={`${product.stockMin.toLocaleString("id-ID")} unit`}
+                />
+                <Spec label="Status" value={product.stockStatus} />
+                <p className="text-xs text-slate-500 sm:col-span-3">
+                  Stok dikelola terpusat. Barang dikirim dari gudang ke cabang pilihan Anda, atau
+                  langsung ke alamat Anda.
+                </p>
               </div>
             )}
           </div>
@@ -1361,11 +1424,14 @@ function CartPage({
 
 function OrderSummary({
   subtotal,
+  shipping,
   onCheckout,
   buttonLabel = "Lanjut Checkout",
   buttonType = "button",
 }: {
   subtotal: number;
+  /** undefined = belum dipilih (halaman keranjang) */
+  shipping?: number;
   onCheckout: () => void;
   buttonLabel?: string;
   buttonType?: "button" | "submit";
@@ -1380,12 +1446,18 @@ function OrderSummary({
         </div>
         <div className="flex justify-between text-slate-500">
           <span>Pengiriman</span>
-          <span className="font-bold text-emerald-600">Gratis</span>
+          {shipping === undefined ? (
+            <span className="text-xs">Dihitung saat checkout</span>
+          ) : shipping === 0 ? (
+            <span className="font-bold text-emerald-600">Gratis (ambil di toko)</span>
+          ) : (
+            <span>{formatPrice(shipping)}</span>
+          )}
         </div>
         <div className="my-4 h-px bg-slate-200" />
         <div className="flex justify-between font-bold text-[#12285C]">
           <span>Total</span>
-          <span className="font-heading text-xl">{formatPrice(subtotal)}</span>
+          <span className="font-heading text-xl">{formatPrice(subtotal + (shipping ?? 0))}</span>
         </div>
       </div>
       <Button
@@ -1403,26 +1475,67 @@ function OrderSummary({
   );
 }
 
+type CheckoutData = {
+  customer: string;
+  customerId: string;
+  phone: string;
+  address: string;
+  branch: string;
+  delivery: Order["delivery"];
+  payment: string;
+  shippingCode?: string;
+  shippingFee: number;
+};
+
+function LoginRequired({ title, text }: { title: string; text: string }) {
+  return (
+    <main>
+      <PageHero title={title} text={text} />
+      <div className="container section">
+        <EmptyState
+          title="Anda belum masuk"
+          text="Masuk dengan akun Google, atau coba sebagai pelanggan contoh."
+          action={<Button onClick={() => go("account")}>Masuk / Daftar</Button>}
+        />
+      </div>
+    </main>
+  );
+}
+
 function CheckoutPage({
+  me,
   cart,
   placeOrder,
 }: {
+  me: Customer;
   cart: CartItem[];
-  placeOrder: (data: {
-    customer: string;
-    branch: string;
-    delivery: Order["delivery"];
-    payment: string;
-  }) => void;
+  placeOrder: (data: CheckoutData) => void;
 }) {
-  const [customer, setCustomer] = useState("");
-  const [branch, setBranch] = useState("Jakarta");
+  const [customer, setCustomer] = useState(me.name);
+  const [phone, setPhone] = useState(me.phone);
+  const [address, setAddress] = useState(me.address);
+  const [branch, setBranch] = useState(
+    branches.some((b) => b.branch === me.branch) ? me.branch : "Jakarta",
+  );
   const [delivery, setDelivery] = useState<Order["delivery"]>("Kirim ke alamat");
+  const [shipCode, setShipCode] = useState(tariffs[0].code);
   const [payment, setPayment] = useState("Transfer Bank");
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
+  const tariff = tariffs.find((t) => t.code === shipCode) ?? tariffs[0];
+  const shippingFee = delivery === "Kirim ke alamat" ? tariff.fee : 0;
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    placeOrder({ customer: customer.trim(), branch, delivery, payment });
+    placeOrder({
+      customer: customer.trim(),
+      customerId: me.id,
+      phone: phone.trim(),
+      address: address.trim(),
+      branch,
+      delivery,
+      payment,
+      shippingCode: delivery === "Kirim ke alamat" ? tariff.code : undefined,
+      shippingFee,
+    });
   };
   if (!cart.length)
     return (
@@ -1445,18 +1558,35 @@ function CheckoutPage({
           <CheckoutBlock title="1. Data Pemesan">
             <div className="grid gap-3 sm:grid-cols-2">
               <input
+                id="co-name"
                 className="field"
                 placeholder="Nama lengkap"
                 value={customer}
                 onChange={(e) => setCustomer(e.target.value)}
                 required
+                aria-label="Nama lengkap"
               />
-              <input className="field" placeholder="Nomor WhatsApp" required />
+              <input
+                id="co-phone"
+                className="field"
+                placeholder="Nomor WhatsApp"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                aria-label="Nomor WhatsApp"
+              />
               <textarea
+                id="co-address"
                 className="field min-h-24 sm:col-span-2"
                 placeholder="Alamat lengkap"
-                required
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                required={delivery === "Kirim ke alamat"}
+                aria-label="Alamat lengkap"
               />
+              <p className="text-xs text-slate-500 sm:col-span-2">
+                Akun {me.id} • diambil dari profil member Anda, boleh diubah untuk pesanan ini.
+              </p>
             </div>
           </CheckoutBlock>
           <CheckoutBlock title="2. Cara Menerima Barang">
@@ -1468,10 +1598,41 @@ function CheckoutPage({
                   onClick={() => setDelivery(item as Order["delivery"])}
                   icon={item.startsWith("Kirim") ? <Truck /> : <Store />}
                   label={item}
-                  text={item.startsWith("Kirim") ? "Gratis hingga 20 km" : "Pilih dari 20 cabang"}
+                  text={
+                    item.startsWith("Kirim")
+                      ? `Mulai ${formatPrice(tariffs[0].fee)}`
+                      : "Gratis, pilih dari 20 cabang"
+                  }
                 />
               ))}
             </div>
+            {delivery === "Kirim ke alamat" && (
+              <div className="mt-4 grid gap-2">
+                <p className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                  Tujuan pengiriman (tarif resmi)
+                </p>
+                {tariffs.map((t) => (
+                  <label
+                    key={t.code}
+                    className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-sm ${shipCode === t.code ? "border-[#12285C] bg-[#F4F6FA]" : "border-slate-200"}`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <input
+                        type="radio"
+                        name="ship"
+                        checked={shipCode === t.code}
+                        onChange={() => setShipCode(t.code)}
+                      />
+                      <span>
+                        <strong className="block text-[#12285C]">{t.name}</strong>
+                        <span className="text-xs text-slate-500">{t.sla}</span>
+                      </span>
+                    </span>
+                    <strong className="shrink-0 text-[#12285C]">{formatPrice(t.fee)}</strong>
+                  </label>
+                ))}
+              </div>
+            )}
             <label className="mt-4 block text-xs font-extrabold uppercase tracking-wide text-slate-500">
               {delivery === "Ambil di toko" ? "Cabang pengambilan" : "Cabang pengirim"}
               <select
@@ -1489,14 +1650,27 @@ function CheckoutPage({
           </CheckoutBlock>
           <CheckoutBlock title="3. Metode Pembayaran">
             <div className="grid gap-3 sm:grid-cols-2">
-              {["Transfer Bank", "QRIS", "Kartu Kredit", "Cicilan 0%"].map((item) => (
+              {[
+                "Transfer Bank",
+                "QRIS",
+                "Kartu Kredit",
+                "Kartu Debit",
+                "Cicilan 0%",
+                ...(delivery === "Ambil di toko" ? ["Tunai"] : []),
+              ].map((item) => (
                 <Choice
                   key={item}
                   active={payment === item}
                   onClick={() => setPayment(item)}
                   icon={<CreditCard />}
                   label={item}
-                  text={item === "Cicilan 0%" ? "Tenor hingga 12 bulan" : "Pembayaran mock"}
+                  text={
+                    item === "Cicilan 0%"
+                      ? "Tenor 3, 6, atau 12 bulan"
+                      : item === "Tunai"
+                        ? "Bayar saat ambil di toko"
+                        : "Pembayaran mock"
+                  }
                 />
               ))}
             </div>
@@ -1504,6 +1678,7 @@ function CheckoutPage({
         </div>
         <OrderSummary
           subtotal={subtotal}
+          shipping={delivery === "Kirim ke alamat" ? shippingFee : 0}
           onCheckout={() => {}}
           buttonLabel="Buat Pesanan"
           buttonType="submit"
@@ -1640,13 +1815,22 @@ function BranchesPage() {
   );
 }
 
-function MemberPage({ notify }: { notify: (message: string) => void }) {
-  const tiers = [
-    ["Bronze", "Mulai bergabung", "1x poin", "Promo member"],
-    ["Silver", "Belanja Rp5 juta", "1,25x poin", "Voucher ulang tahun"],
-    ["Gold", "Belanja Rp25 juta", "1,5x poin", "Prioritas layanan"],
-    ["Platinum", "Belanja Rp75 juta", "2x poin", "Gratis kirim premium"],
+function MemberPage() {
+  const me = useCustomer();
+  const benefit = [
+    "Promo member",
+    "Voucher ulang tahun",
+    "Prioritas layanan",
+    "Account manager khusus",
   ];
+  const tiers = params.tiers.map((t, i) => [
+    t.name,
+    t.min === 0
+      ? `Total belanja di bawah ${formatPrice(params.tiers[1].min)}`
+      : `Total belanja mulai ${formatPrice(t.min)}`,
+    `1 poin tiap ${formatPrice(params.rpPerPoint)}`,
+    benefit[i],
+  ]);
   return (
     <main>
       <PageHero
@@ -1700,10 +1884,10 @@ function MemberPage({ notify }: { notify: (message: string) => void }) {
                 </thead>
                 <tbody>
                   {[
-                    ["Poin belanja", "1x", "1,25x", "1,5x", "2x"],
+                    ["Poin belanja", "1 poin / Rp10.000", "sama", "sama", "sama"],
                     ["Voucher ulang tahun", "—", "✓", "✓", "✓"],
                     ["Prioritas servis", "—", "—", "✓", "✓"],
-                    ["Gratis pengiriman", "—", "—", "—", "✓"],
+                    ["Account manager", "—", "—", "—", "✓"],
                   ].map((row) => (
                     <tr key={row[0]} className="border-b border-slate-100">
                       <td className="p-4 font-semibold">{row[0]}</td>
@@ -1717,34 +1901,23 @@ function MemberPage({ notify }: { notify: (message: string) => void }) {
                 </tbody>
               </table>
             </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                notify("Pendaftaran member berhasil dikirim.");
-              }}
-              className="rounded-2xl bg-[#F4F6FA] p-6"
-            >
+            <div className="rounded-2xl bg-[#F4F6FA] p-6">
               <h2 className="font-heading text-xl font-bold text-[#12285C]">
-                Daftar Member Gratis
+                {me ? `Halo, ${me.name.split(" ")[0]}` : "Daftar Member Gratis"}
               </h2>
               <p className="mt-2 text-sm text-slate-500">
-                Isi data singkat untuk mulai mengumpulkan poin.
+                {me
+                  ? "Lihat tingkat member, total belanja, dan poin Anda di halaman akun."
+                  : "Daftar cukup dengan akun Google. Member baru mulai dari Bronze dan naik otomatis sesuai total belanja."}
               </p>
-              <div className="mt-5 space-y-3">
-                <input className="field" placeholder="Nama lengkap" required />
-                <input className="field" placeholder="Nomor WhatsApp" required />
-                <input className="field" type="email" placeholder="Email" required />
-                <select className="field">
-                  <option>Cabang favorit</option>
-                  {branches.map((b) => (
-                    <option key={b.code}>{b.city}</option>
-                  ))}
-                </select>
-                <Button type="submit" className="w-full">
-                  Daftar Sekarang
-                </Button>
-              </div>
-            </form>
+              <Button onClick={() => go("account")} className="mt-5 w-full">
+                {me ? "Buka Akun Saya" : "Daftar / Masuk dengan Google"}
+              </Button>
+              <p className="mt-4 text-[11px] leading-5 text-slate-500">
+                Aturan tingkat dan poin sama dengan database pelanggan 2027: 3.808 pelanggan terdiri
+                dari 927 Bronze, 1.379 Silver, 1.032 Gold, dan 470 Platinum.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -1780,7 +1953,7 @@ function PromoPage() {
                 </span>
                 <h2 className="mt-5 font-heading text-3xl font-bold">Pekan Elektronik Keluarga</h2>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-white/65">
-                  Hemat hingga 30% untuk TV, kulkas, mesin cuci, AC, dan peralatan dapur pilihan.
+                  Hemat hingga 15% untuk TV, kulkas, mesin cuci, AC, dan peralatan dapur pilihan.
                 </p>
               </div>
               <div>
@@ -1810,7 +1983,7 @@ function PromoPage() {
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {promoSlides
               .concat([
-                { ...promoSlides[0], label: "Gratis Ongkir" },
+                { ...promoSlides[0], label: "Ambil di Toko Gratis" },
                 { ...promoSlides[1], label: "Trade-in" },
               ])
               .map((promo, i) => (
@@ -1843,7 +2016,7 @@ function AboutPage() {
     <main>
       <PageHero
         title="Tentang HARTINI"
-        text="Tumbuh dekat bersama keluarga Indonesia sejak 1998."
+        text="Usaha keluarga sejak 1998, cabang modern pertama dibuka di Jakarta pada 2012."
       />
       <section className="section">
         <div className="container">
@@ -1854,9 +2027,14 @@ function AboutPage() {
                 Elektronik berkualitas harus mudah dijangkau siapa saja.
               </h2>
               <p className="mt-5 text-sm leading-7 text-slate-600">
-                HARTINI ELECTRONIC bermula dari sebuah toko keluarga dengan keyakinan sederhana:
-                pelanggan berhak mendapat penjelasan yang jujur, pilihan yang lengkap, dan layanan
-                yang tetap hadir setelah transaksi selesai.
+                HARTINI ELECTRONIC bermula pada 1998 dari sebuah toko keluarga dengan keyakinan
+                sederhana: pelanggan berhak mendapat penjelasan yang jujur, pilihan yang lengkap,
+                dan layanan yang tetap hadir setelah transaksi selesai.
+              </p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                Pada 16 Maret 2012 toko pertama itu pindah dan berganti format menjadi cabang modern
+                di Jakarta Selatan. Cabang Jakarta inilah yang tercatat sebagai cabang tertua dalam
+                data perusahaan, disusul Surabaya (2013) dan Bandung (2014).
               </p>
               <p className="mt-3 text-sm leading-7 text-slate-600">
                 Kini kami melayani pelanggan melalui 20 cabang di 15 provinsi, didukung 440 karyawan
@@ -2022,7 +2200,7 @@ function FaqPage() {
   const faqs = [
     [
       "Apakah semua produk bergaransi resmi?",
-      "Ya. Setiap produk dilengkapi garansi resmi sesuai ketentuan merek, mulai dari 12 hingga 60 bulan.",
+      "Ya. Setiap produk dilengkapi garansi resmi sesuai ketentuan merek, minimal 12 bulan. Lama garansi tiap produk tertera di halaman detail.",
     ],
     [
       "Bagaimana kebijakan retur?",
@@ -2030,11 +2208,11 @@ function FaqPage() {
     ],
     [
       "Bagaimana cara mengajukan cicilan 0%?",
-      "Pilih produk bertanda Cicilan 0%, lalu gunakan kartu kredit bank partner atau ajukan melalui staf cabang.",
+      "Pilih metode Cicilan 0% saat checkout. Tenor 3, 6, atau 12 bulan melalui bank mitra, multifinance, atau kredit internal toko.",
     ],
     [
       "Berapa lama waktu pengiriman?",
-      "Dalam kota maksimal 2 hari kerja. Luar kota 2–4 hari kerja dan antar pulau 5–10 hari kerja.",
+      "Dalam kota maksimal 2 hari kerja (Rp75.000), luar kota/antar kabupaten maksimal 4 hari kerja (Rp250.000), dan antar pulau 5–10 hari kerja (Rp650.000). Ambil di toko gratis.",
     ],
     [
       "Apakah ada layanan instalasi?",
@@ -2304,6 +2482,11 @@ function ReviewForm({ onSubmit }: { onSubmit: (rating: number, comment: string) 
 }
 
 function ProductReviews({ reviews }: { reviews: Review[] }) {
+  const [shown, setShown] = useState(5);
+  const sorted = useMemo(
+    () => [...reviews].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [reviews],
+  );
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
   return (
     <section className="section pb-0">
@@ -2327,7 +2510,7 @@ function ProductReviews({ reviews }: { reviews: Review[] }) {
               <p className="mt-2 text-xs text-slate-500">{reviews.length} ulasan</p>
             </div>
             <div className="space-y-3">
-              {[...reviews].reverse().map((r) => (
+              {sorted.slice(0, shown).map((r) => (
                 <article key={r.id} className="rounded-2xl border border-slate-200 p-5">
                   <div className="flex items-center justify-between gap-3">
                     <strong className="text-sm text-[#12285C]">
@@ -2355,11 +2538,362 @@ function ProductReviews({ reviews }: { reviews: Review[] }) {
                   )}
                 </article>
               ))}
+              {sorted.length > shown && (
+                <Button variant="outline" onClick={() => setShown(shown + 10)}>
+                  Tampilkan ulasan lainnya ({sorted.length - shown})
+                </Button>
+              )}
             </div>
           </div>
         )}
       </div>
     </section>
+  );
+}
+
+const TIER_STYLE: Record<string, string> = {
+  Bronze: "bg-[#F3E3D3] text-[#8A4B14]",
+  Silver: "bg-slate-200 text-slate-700",
+  Gold: "bg-amber-100 text-amber-800",
+  Platinum: "bg-[#12285C] text-white",
+};
+
+function AccountButton() {
+  const me = useCustomer();
+  return (
+    <button
+      onClick={() => go("account")}
+      className="icon-button"
+      aria-label={me ? `Akun ${me.name}` : "Masuk atau daftar"}
+      title={me ? me.name : "Masuk"}
+    >
+      {me ? (
+        me.picture ? (
+          <img
+            src={me.picture}
+            alt=""
+            className="size-7 rounded-full"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <span className="grid size-7 place-items-center rounded-full bg-[#12285C] text-xs font-bold text-white">
+            {me.name.slice(0, 1).toUpperCase()}
+          </span>
+        )
+      ) : (
+        <UserRound size={20} />
+      )}
+    </button>
+  );
+}
+
+function GoogleSignIn({ onProfile }: { onProfile: (p: GoogleProfile) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!ref.current) return;
+    renderGoogleButton(ref.current, onProfile).catch((e: Error) =>
+      setError(
+        e.message === "NO_CLIENT_ID"
+          ? "Login Google belum diaktifkan. Admin perlu mengisi Google Client ID (VITE_GOOGLE_CLIENT_ID)."
+          : "Tombol Google gagal dimuat. Periksa koneksi lalu muat ulang halaman.",
+      ),
+    );
+  }, []);
+  return (
+    <div>
+      <div ref={ref} className="min-h-11" />
+      {error && (
+        <p role="alert" className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AccountPage({ orders }: { orders: Order[] }) {
+  const me = useCustomer();
+  const excel = useExcelCustomers();
+  const [pending, setPending] = useState<GoogleProfile | null>(null);
+  const [checking, setChecking] = useState(false);
+  const onProfile = async (p: GoogleProfile) => {
+    setChecking(true);
+    const found = await findByEmail(p.email);
+    setChecking(false);
+    if (found) signInAs({ ...found, picture: p.picture });
+    else setPending(p);
+  };
+  // satu contoh pelanggan aktif perorangan per tier, dari sheet Pelanggan
+  const samples = useMemo(() => {
+    if (!excel) return [];
+    return params.tiers
+      .map((t) =>
+        excel.find(
+          (c) =>
+            c.type === "Perorangan" &&
+            tierFor(c.baseTotal) === t.name &&
+            c.lastPurchase &&
+            c.lastPurchase >= "2027-10-01",
+        ),
+      )
+      .filter((c): c is Customer => !!c);
+  }, [excel]);
+
+  if (me) {
+    const m = membershipOf(me, orders);
+    const pct = m.next ? Math.min(1, m.total / m.next.min) : 1;
+    return (
+      <main>
+        <PageHero
+          title="Akun Saya"
+          text="Profil pelanggan, tingkat member, dan poin belanja Anda."
+        />
+        <section className="container section grid gap-6 lg:grid-cols-[1fr_380px]">
+          <div className="rounded-2xl border border-slate-200 p-6">
+            <div className="flex flex-wrap items-center gap-4">
+              {me.picture ? (
+                <img
+                  src={me.picture}
+                  alt=""
+                  className="size-14 rounded-full"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="grid size-14 place-items-center rounded-full bg-[#12285C] font-heading text-xl font-bold text-white">
+                  {me.name.slice(0, 1)}
+                </span>
+              )}
+              <div className="min-w-0">
+                <h2 className="font-heading text-xl font-bold text-[#12285C]">{me.name}</h2>
+                <p className="text-sm text-slate-500">
+                  {me.id} • {me.source === "google" ? "Akun Google" : "Pelanggan database 2027"}
+                </p>
+              </div>
+            </div>
+            <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+              {[
+                ["Email", me.email],
+                ["No. HP", me.phone],
+                ["Kota", me.city],
+                ["Cabang asal", me.branch],
+                ["Tipe pelanggan", me.type],
+                [
+                  "Tanggal bergabung",
+                  new Date(me.joined).toLocaleDateString("id-ID", { dateStyle: "long" }),
+                ],
+                ["Alamat", me.address],
+              ].map(([k, v]) => (
+                <div key={k} className={k === "Alamat" ? "sm:col-span-2" : ""}>
+                  <dt className="text-xs font-bold uppercase tracking-wide text-slate-400">{k}</dt>
+                  <dd className="mt-1 break-words text-sm text-slate-700">{v || "-"}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button onClick={() => go("orders")}>Pesanan Saya</Button>
+              <Button variant="outline" onClick={signOut}>
+                Keluar
+              </Button>
+            </div>
+          </div>
+          <aside className="h-fit rounded-2xl border border-slate-200 p-6">
+            <p className="text-xs font-extrabold uppercase tracking-[.12em] text-slate-500">
+              Tingkat member
+            </p>
+            <span
+              className={`mt-3 inline-block rounded-xl px-4 py-2 font-heading text-2xl font-bold ${TIER_STYLE[m.tier]}`}
+            >
+              {m.tier}
+            </span>
+            <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <dt className="text-xs text-slate-500">Total belanja</dt>
+                <dd className="font-bold text-[#12285C]">{formatPrice(m.total)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Poin member</dt>
+                <dd className="font-bold text-[#12285C]">{m.points.toLocaleString("id-ID")}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Jumlah transaksi</dt>
+                <dd className="font-bold text-[#12285C]">{m.trx}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Status</dt>
+                <dd className="font-bold text-[#12285C]">{m.status}</dd>
+              </div>
+            </dl>
+            {m.next ? (
+              <div className="mt-5">
+                <div className="h-2 rounded-full bg-slate-100">
+                  <div
+                    className="h-2 rounded-full bg-[#FF7A1A]"
+                    style={{ width: `${pct * 100}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Belanja {formatPrice(m.next.min - m.total)} lagi untuk naik ke {m.next.name}.
+                </p>
+              </div>
+            ) : (
+              <p className="mt-5 text-xs text-slate-500">Anda sudah di tingkat tertinggi.</p>
+            )}
+            <p className="mt-4 text-[11px] text-slate-400">
+              1 poin setiap belanja {formatPrice(params.rpPerPoint)}. Tingkat dihitung dari total
+              belanja, sesuai aturan di database.
+            </p>
+          </aside>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main>
+      <PageHero
+        title="Masuk atau Daftar"
+        text="Gunakan akun Google Anda. Pelanggan baru otomatis terdaftar sebagai member Bronze."
+      />
+      <section className="container section grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 p-6">
+          {!pending ? (
+            <>
+              <h2 className="font-heading text-lg font-bold text-[#12285C]">Masuk dengan Google</h2>
+              <p className="mb-5 mt-2 text-sm text-slate-500">
+                Satu klik, tanpa password baru. Kami hanya mengambil nama, email, dan foto profil
+                Anda.
+              </p>
+              <GoogleSignIn onProfile={onProfile} />
+              {checking && <p className="mt-3 text-xs text-slate-500">Memeriksa akun…</p>}
+            </>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                const v = (k: string) => String(f.get(k) || "").trim();
+                saveAccount({
+                  id: nextCustomerId(),
+                  name: v("name"),
+                  email: pending.email,
+                  phone: v("phone"),
+                  city: v("city"),
+                  branch: v("branch"),
+                  address: v("address"),
+                  type: v("type") === "Korporat" ? "Korporat" : "Perorangan",
+                  joined: new Date().toISOString().slice(0, 10),
+                  baseTotal: 0,
+                  baseTrx: 0,
+                  lastPurchase: null,
+                  source: "google",
+                  picture: pending.picture,
+                });
+                setPending(null);
+              }}
+              className="grid gap-3"
+            >
+              <h2 className="font-heading text-lg font-bold text-[#12285C]">Lengkapi profil</h2>
+              <p className="text-sm text-slate-500">
+                Masuk sebagai <b>{pending.email}</b>. Data ini dipakai untuk pengiriman dan program
+                member.
+              </p>
+              <input
+                id="acc-name"
+                name="name"
+                className="field"
+                defaultValue={pending.name}
+                placeholder="Nama lengkap"
+                required
+                aria-label="Nama lengkap"
+              />
+              <input
+                id="acc-phone"
+                name="phone"
+                className="field"
+                placeholder="No. HP (mis. 0812xxxxxxx)"
+                required
+                pattern="0[0-9]{9,12}"
+                aria-label="No. HP"
+              />
+              <input
+                id="acc-city"
+                name="city"
+                className="field"
+                placeholder="Kota / kabupaten"
+                required
+                aria-label="Kota"
+              />
+              <select
+                id="acc-branch"
+                name="branch"
+                className="field"
+                aria-label="Cabang terdekat"
+                defaultValue="Jakarta"
+              >
+                {branches.map((b) => (
+                  <option key={b.code} value={b.branch}>
+                    Cabang terdekat: {b.branch}
+                  </option>
+                ))}
+              </select>
+              <select id="acc-type" name="type" className="field" aria-label="Tipe pelanggan">
+                <option>Perorangan</option>
+                <option>Korporat</option>
+              </select>
+              <textarea
+                id="acc-address"
+                name="address"
+                className="field min-h-20"
+                placeholder="Alamat lengkap"
+                required
+                aria-label="Alamat"
+              />
+              <div className="flex flex-wrap gap-3">
+                <Button type="submit">Simpan & masuk</Button>
+                <Button variant="ghost" onClick={() => setPending(null)}>
+                  Batal
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+        <div className="rounded-2xl bg-[#F4F6FA] p-6">
+          <h2 className="font-heading text-lg font-bold text-[#12285C]">
+            Coba sebagai pelanggan contoh
+          </h2>
+          <p className="mb-5 mt-2 text-sm text-slate-500">
+            Untuk demo: masuk sebagai pelanggan dari database 2027 (sheet Pelanggan), satu dari tiap
+            tingkat member.
+          </p>
+          {!excel ? (
+            <div className="skeleton h-40 rounded-xl" />
+          ) : (
+            <div className="grid gap-2">
+              {samples.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => signInAs(c)}
+                  className="flex items-center justify-between gap-3 rounded-xl bg-white p-4 text-left hover:ring-2 hover:ring-[#12285C]/20"
+                >
+                  <span className="min-w-0">
+                    <strong className="block truncate text-sm text-[#12285C]">{c.name}</strong>
+                    <span className="text-xs text-slate-500">
+                      {c.id} • {c.branch} • belanja {formatPrice(c.baseTotal)}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${TIER_STYLE[tierFor(c.baseTotal)]}`}
+                  >
+                    {tierFor(c.baseTotal)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -2417,6 +2951,7 @@ function OrdersPage({
                         year: "numeric",
                       })}{" "}
                       • {order.delivery} • {order.payment}
+                      {order.shippingFee ? ` • ongkir ${formatPrice(order.shippingFee)}` : ""}
                     </p>
                   </div>
                   <strong className="font-heading text-lg text-[#12285C]">
@@ -2588,10 +3123,12 @@ function AdminSales({
   report,
   orders,
   onDemo,
+  scopeLabel = "Seluruh cabang",
 }: {
   report: Report | null;
   orders: Order[];
   onDemo: () => void;
+  scopeLabel?: string;
 }) {
   const [statusFilter, setStatusFilter] = useState("Semua");
   const allMonths = MONTHS.map((_, i) => i);
@@ -2632,7 +3169,7 @@ function AdminSales({
       <div>
         <h2 className="font-heading text-lg font-bold text-[#12285C]">Ringkasan Penjualan 2027</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Seluruh cabang • data workbook + pesanan online (menambah) − retur (mengurangi)
+          {scopeLabel} • data workbook + pesanan online (menambah) − retur selesai (mengurangi)
         </p>
         {!all ? (
           <div className="mt-4">
@@ -2826,12 +3363,16 @@ function AdminSales({
 }
 
 function AdminReviews({
-  reviews,
+  reviews: allReviews,
   update,
+  branch,
 }: {
   reviews: Review[];
   update: (id: string, patch: Partial<Review>) => void;
+  branch?: string;
 }) {
+  const reviews = branch ? allReviews.filter((r) => r.branch === branch) : allReviews;
+  const [limit, setLimit] = useState(20);
   const [rating, setRating] = useState("Semua");
   const [q, setQ] = useState("");
   const [replying, setReplying] = useState<string | null>(null);
@@ -2852,9 +3393,12 @@ function AdminReviews({
     .filter(
       (r) =>
         (rating === "Semua" || r.rating === Number(rating)) &&
-        (!q || nameOf(r.productId).toLowerCase().includes(q.toLowerCase())),
+        (!q ||
+          `${nameOf(r.productId)} ${r.customer} ${r.orderId}`
+            .toLowerCase()
+            .includes(q.toLowerCase())),
     )
-    .reverse();
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -2916,7 +3460,7 @@ function AdminReviews({
         />
       ) : (
         <div className="space-y-3">
-          {shown.map((r) => (
+          {shown.slice(0, limit).map((r) => (
             <article
               key={r.id}
               className={`rounded-2xl border p-5 ${r.hidden ? "border-dashed border-slate-300 opacity-70" : "border-slate-200"}`}
@@ -2925,7 +3469,7 @@ function AdminReviews({
                 <div>
                   <p className="text-sm font-bold text-[#12285C]">{nameOf(r.productId)}</p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {r.customer || "Pembeli"} • {r.orderId} •{" "}
+                    {r.customer || "Pembeli"} • {r.orderId} • {r.branch ?? "Online"} •{" "}
                     {new Date(r.createdAt).toLocaleDateString("id-ID")}
                   </p>
                 </div>
@@ -2985,6 +3529,11 @@ function AdminReviews({
               )}
             </article>
           ))}
+          {shown.length > limit && (
+            <Button variant="outline" onClick={() => setLimit(limit + 30)}>
+              Tampilkan lagi ({(shown.length - limit).toLocaleString("id-ID")} ulasan tersisa)
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -3072,6 +3621,7 @@ const statusBadge: Record<string, string> = {
   "Dalam Pengiriman": "bg-blue-50 text-blue-700",
   "Siap Diambil": "bg-amber-50 text-amber-700",
   Selesai: "bg-emerald-50 text-emerald-700",
+  Dibatalkan: "bg-red-50 text-red-700",
 };
 
 function ShipmentCard({
@@ -3245,20 +3795,22 @@ function TxShipping({
   const [page, setPage] = useState(0);
   const [dlg, setDlg] = useState<Tx | null>(null);
   const PAGE = 25;
-  useEffect(() => setPage(0), [branch, status, month, q]);
-  const meta = useMemo(() => db.rows.map((t) => ({ t, ...txMeta(t) })).reverse(), [db]);
+  const [delivery, setDelivery] = useState("Kirim ke alamat");
+  useEffect(() => setPage(0), [branch, status, month, q, delivery]);
+  const meta = useMemo(() => db.rows.map((t) => ({ t, ...txMeta(t, db) })).reverse(), [db]);
   const eff = (m: (typeof meta)[number]): TxStatus => ledger.overrides[m.t.trx] ?? m.status;
   const scoped = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return meta.filter(
       (m) =>
         (branch === "Semua" || m.t.branch === branch) &&
+        (delivery === "Semua" || m.delivery === delivery) &&
         (month === "Semua" || serialToDate(m.t.serial).getUTCMonth() === Number(month)) &&
         (!needle ||
           m.t.trx.toLowerCase().includes(needle) ||
           (db.skus[m.t.sku]?.[0] || "").toLowerCase().includes(needle)),
     );
-  }, [meta, branch, month, q, db]);
+  }, [meta, branch, month, q, db, delivery]);
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
     scoped.forEach((m) => (c[eff(m)] = (c[eff(m)] || 0) + 1));
@@ -3278,15 +3830,30 @@ function TxShipping({
   return (
     <div className="space-y-5">
       <p className="text-xs text-slate-500">
-        Status pengiriman dibuat acak namun mengikuti tanggal tiap transaksi pada sheet “Data
-        Penjualan 2027” (transaksi lama sudah selesai, transaksi akhir Desember masih berjalan).
+        Sesuai database: transaksi yang punya order layanan pengiriman (L-01 dalam kota, L-02 luar
+        kota, L-03 antar pulau) di sheet “Transaksi Layanan” dianggap dikirim, statusnya mengikuti
+        sheet tersebut. Transaksi lain dibawa langsung dari toko.
       </p>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {(["Diproses", "Dalam Pengiriman", "Siap Diambil", "Selesai"] as const).map((s) => (
-          <AdminStat key={s} label={s} value={(counts[s] || 0).toLocaleString("id-ID")} />
+        {(["Diproses", "Dalam Pengiriman", "Selesai", "Dibatalkan"] as const).map((s) => (
+          <AdminStat
+            key={s}
+            label={s === "Diproses" ? "Dijadwalkan" : s}
+            value={(counts[s] || 0).toLocaleString("id-ID")}
+          />
         ))}
       </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <select
+          value={delivery}
+          onChange={(e) => setDelivery(e.target.value)}
+          className="field"
+          aria-label="Penerimaan"
+        >
+          <option value="Kirim ke alamat">Dikirim</option>
+          <option value="Ambil di toko">Bawa langsung</option>
+          <option value="Semua">Semua transaksi</option>
+        </select>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -3324,7 +3891,7 @@ function TxShipping({
           className="field"
           aria-label="Status"
         >
-          {["Semua", "Diproses", "Dalam Pengiriman", "Siap Diambil", "Selesai"].map((x) => (
+          {["Semua", "Diproses", "Dalam Pengiriman", "Selesai", "Dibatalkan"].map((x) => (
             <option key={x}>{x}</option>
           ))}
         </select>
@@ -3365,7 +3932,18 @@ function TxShipping({
                       </span>
                     </td>
                     <td className="p-3 text-slate-500">{m.t.branch}</td>
-                    <td className="p-3 text-xs text-slate-500">{m.delivery}</td>
+                    <td className="p-3 text-xs text-slate-500">
+                      {m.ship ? (
+                        <>
+                          <span className="block font-semibold text-slate-600">
+                            {tariffs.find((t) => t.code === m.ship!.code)?.name ?? m.ship.code}
+                          </span>
+                          {m.ship.order} • {formatPrice(m.ship.fee)} • {m.ship.courier}
+                        </>
+                      ) : (
+                        "Bawa langsung"
+                      )}
+                    </td>
                     <td className="p-3">
                       <span
                         className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusBadge[st]}`}
@@ -3565,17 +4143,30 @@ function AdminShipping({
   );
 }
 
-function AdminReturns({ ledger }: { ledger: Ledger }) {
-  const total = ledger.returns.reduce((sum, r) => sum + r.omzet, 0);
-  const units = ledger.returns.reduce((sum, r) => sum + r.qty, 0);
+function AdminReturns({ ledger, branch }: { ledger: Ledger; branch?: string }) {
+  const list = ledger.returns
+    .filter((r) => !branch || r.branch === branch)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const counted = list.filter(isCountedReturn);
+  const total = counted.reduce((sum, r) => sum + r.omzet, 0);
+  const hpp = counted.reduce((sum, r) => sum + r.hpp, 0);
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <AdminStat label="Jumlah retur" value={String(ledger.returns.length)} />
-        <AdminStat label="Unit diretur" value={String(units)} />
-        <AdminStat label="Nilai retur (omzet berkurang)" value={formatPrice(total)} />
+      <p className="text-xs text-slate-500">
+        Retur dari database diambil dari sheet “Keluhan &amp; Klaim Garansi” dengan penanganan
+        Refund / Retur (1 unit per klaim). Hanya klaim berstatus Selesai yang mengurangi omzet dan
+        HPP.
+      </p>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <AdminStat label="Klaim retur" value={String(list.length)} />
+        <AdminStat
+          label="Selesai / masih proses"
+          value={`${counted.length} / ${list.length - counted.length}`}
+        />
+        <AdminStat label="Omzet berkurang" value={formatPrice(total)} />
+        <AdminStat label="HPP berkurang (barang kembali)" value={formatPrice(hpp)} />
       </div>
-      {ledger.returns.length === 0 ? (
+      {list.length === 0 ? (
         <EmptyState
           title="Belum ada retur"
           text="Proses retur dari tab Pengiriman pada transaksi berstatus Selesai."
@@ -3583,21 +4174,21 @@ function AdminReturns({ ledger }: { ledger: Ledger }) {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-slate-200">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="bg-[#F4F6FA] text-xs text-slate-500">
                 <tr>
                   <th className="p-3">Tanggal</th>
                   <th className="p-3">Referensi</th>
                   <th className="p-3">Cabang</th>
                   <th className="p-3">Produk</th>
-                  <th className="p-3 text-right">Qty</th>
                   <th className="p-3 text-right">Nilai</th>
-                  <th className="p-3">Alasan</th>
+                  <th className="p-3">Keluhan</th>
+                  <th className="p-3">Status</th>
                   <th className="p-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {ledger.returns.map((r) => (
+                {list.map((r) => (
                   <tr key={r.id} className="border-t border-slate-100">
                     <td className="p-3 text-xs text-slate-500">
                       {new Date(r.date).toLocaleDateString("id-ID")}
@@ -3605,21 +4196,36 @@ function AdminReturns({ ledger }: { ledger: Ledger }) {
                     <td className="p-3">
                       <strong className="block text-[#12285C]">{r.ref}</strong>
                       <span className="text-xs text-slate-400">
-                        {r.source === "toko" ? "Toko" : "Online"}
+                        {r.source === "excel"
+                          ? `Database • ${r.id}`
+                          : r.source === "toko"
+                            ? "Toko (web)"
+                            : "Online"}
                       </span>
                     </td>
                     <td className="p-3 text-slate-500">{r.branch}</td>
-                    <td className="max-w-[220px] truncate p-3">{r.name}</td>
-                    <td className="p-3 text-right">{r.qty}</td>
+                    <td className="max-w-[220px] p-3">
+                      <span className="block truncate">{r.name}</span>
+                      <span className="text-xs text-slate-400">{r.qty} unit</span>
+                    </td>
                     <td className="p-3 text-right font-bold">{formatPrice(r.omzet)}</td>
-                    <td className="p-3 text-xs text-slate-500">{r.reason}</td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => ledger.removeReturn(r.id)}
-                        className="min-h-9 px-2 text-xs font-bold text-[#FF7A1A]"
+                    <td className="max-w-[200px] p-3 text-xs text-slate-500">{r.reason}</td>
+                    <td className="p-3">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${isCountedReturn(r) ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
                       >
-                        Batalkan
-                      </button>
+                        {r.status ?? "Selesai"}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">
+                      {r.source !== "excel" && (
+                        <button
+                          onClick={() => ledger.removeReturn(r.id)}
+                          className="min-h-9 px-2 text-xs font-bold text-[#FF7A1A]"
+                        >
+                          Batalkan
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -3914,8 +4520,64 @@ function AdminFinance({ report }: { report: Report | null }) {
   );
 }
 
+type AdminRole = "direktur" | "kacab" | "staff";
+type AdminSession = { role: AdminRole; branch?: string };
+
+const ROLE_LABEL: Record<AdminRole, string> = {
+  direktur: "Direktur",
+  kacab: "Kepala Cabang",
+  staff: "Staff Cabang",
+};
+/** Tab yang boleh dibuka tiap peran. */
+const ROLE_TABS: Record<AdminRole, string[]> = {
+  direktur: [
+    "Dasbor Direksi",
+    "Data Penjualan",
+    "Review Barang",
+    "Pengiriman",
+    "Retur",
+    "Stok",
+    "Pelanggan",
+    "Laporan Keuangan",
+    "Rekonsiliasi",
+  ],
+  kacab: [
+    "Dasbor Cabang",
+    "Data Penjualan",
+    "Review Barang",
+    "Pengiriman",
+    "Retur",
+    "Stok",
+    "Pelanggan",
+    "Laporan Keuangan",
+  ],
+  staff: ["Data Penjualan", "Retur", "Review Barang", "Stok"],
+};
+
+/**
+ * Kode akses demo: admin123 (Direktur), KACAB+NAMACABANG (Kepala Cabang),
+ * STAFF+NAMACABANG (Staff). Contoh: KACABSIDOARJO, STAFFSIDOARJO.
+ * Hanya untuk prototipe: kode tertulis di kode sumber, ganti dengan login server.
+ */
+function resolveAdmin(code: string): AdminSession | null {
+  const c = code.trim().toUpperCase().replace(/\s+/g, "");
+  if (code.trim() === ADMIN_PIN) return { role: "direktur" };
+  const m = c.match(/^(KACAB|STAFF)(.+)$/);
+  if (!m) return null;
+  const b = branches.find((x) => x.branch.toUpperCase().replace(/\s+/g, "") === m[2]);
+  return b ? { role: m[1] === "KACAB" ? "kacab" : "staff", branch: b.branch } : null;
+}
+function readAdminSession(): AdminSession | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem("hartini.admin") || "null");
+    return v && ROLE_TABS[v.role as AdminRole] ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 function AdminPage({
-  orders,
+  orders: allOrders,
   reviews,
   updateOrder,
   updateReview,
@@ -3927,38 +4589,54 @@ function AdminPage({
   updateReview: (id: string, patch: Partial<Review>) => void;
   addDemo: () => void;
 }) {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem("hartini.admin") === "1");
+  const [session, setSession] = useState<AdminSession | null>(readAdminSession);
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
-  const [tab, setTab] = useState("Dasbor Direksi");
+  const [tab, setTab] = useState("");
   const [notice, setNotice] = useState("");
-  const { db, error: dbError } = useSalesDb();
-  const ledger = useLedgerStore();
+  const { db: fullDb, error: dbError } = useSalesDb();
+  const branch = session?.branch;
+  // Kepala cabang & staff hanya menerima data cabangnya sendiri.
+  const db = useMemo(() => (fullDb && branch ? scopeDb(fullDb, branch) : fullDb), [fullDb, branch]);
+  const orders = useMemo(
+    () => (branch ? allOrders.filter((o) => o.branch === branch) : allOrders),
+    [allOrders, branch],
+  );
+  const ledger = useLedgerStore(db?.returns);
+  const returns = useMemo(
+    () => (branch ? ledger.returns.filter((r) => r.branch === branch) : ledger.returns),
+    [ledger.returns, branch],
+  );
   const report = useMemo(
-    () => (db ? buildReport(db, orders, ledger.returns) : null),
-    [db, orders, ledger.returns],
+    () => (db ? buildReport(db, orders, returns) : null),
+    [db, orders, returns],
   );
   const say = (msg: string) => {
     setNotice(msg);
     window.setTimeout(() => setNotice(""), 4000);
   };
-  if (!authed)
+  if (!session)
     return (
       <main>
-        <PageHero title="Dasbor Admin" text="Khusus staf HARTINI ELECTRONIC." />
+        <PageHero
+          title="Dasbor Admin"
+          text="Khusus Direktur, Kepala Cabang, dan Staff HARTINI ELECTRONIC."
+        />
         <section className="section">
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (pin === ADMIN_PIN) {
-                sessionStorage.setItem("hartini.admin", "1");
-                setAuthed(true);
-              } else setError(true);
+              const s = resolveAdmin(pin);
+              if (!s) return setError(true);
+              sessionStorage.setItem("hartini.admin", JSON.stringify(s));
+              setSession(s);
+              setTab(ROLE_TABS[s.role][0]);
             }}
             className="container max-w-sm rounded-2xl border border-slate-200 p-6"
           >
             <h2 className="font-heading text-lg font-bold text-[#12285C]">Masuk Admin</h2>
             <input
+              id="admin-pin"
               type="password"
               value={pin}
               onChange={(e) => {
@@ -3972,60 +4650,76 @@ function AdminPage({
             />
             {error && (
               <p role="alert" className="mt-2 text-xs font-bold text-red-500">
-                Kode akses salah.
+                Kode akses salah. Periksa penulisan nama cabang.
               </p>
             )}
             <Button type="submit" className="mt-4 w-full">
               Masuk
             </Button>
-            <p className="mt-3 text-[11px] text-slate-400">
-              Demo: kode akses “{ADMIN_PIN}”. Gate ini hanya contoh dan belum aman untuk produksi.
-            </p>
+            <div className="mt-4 rounded-xl bg-[#F4F6FA] p-3 text-[11px] leading-5 text-slate-500">
+              <b className="text-slate-600">Kode demo:</b>
+              <br />
+              Direktur: {ADMIN_PIN}
+              <br />
+              Kepala cabang: KACAB + nama cabang, mis. KACABSIDOARJO
+              <br />
+              Staff cabang: STAFF + nama cabang, mis. STAFFSIDOARJO
+              <br />
+              Hanya contoh, belum aman untuk produksi.
+            </div>
           </form>
         </section>
       </main>
     );
-  const tabs = [
-    "Dasbor Direksi",
-    "Data Penjualan",
-    "Review Barang",
-    "Pengiriman",
-    "Retur",
-    "Laporan Keuangan",
-  ];
+  const tabs = ROLE_TABS[session.role];
+  const active = tabs.includes(tab) ? tab : tabs[0];
+  const head = branch ? branches.find((b) => b.branch === branch)?.head : undefined;
+  const loading = dbError ? <LoadingBlock error /> : <LoadingBlock />;
   return (
     <main>
       <PageHero
-        title="Dasbor Admin"
-        text="Pantau penjualan, kelola ulasan, pengiriman, retur, dan laporan keuangan tiap cabang."
+        title={session.role === "direktur" ? "Dasbor Admin" : `Admin Cabang ${branch}`}
+        text={
+          session.role === "direktur"
+            ? "Seluruh informasi 20 cabang: penjualan, ulasan, pengiriman, retur, stok, pelanggan, keuangan, dan rekonsiliasi."
+            : session.role === "kacab"
+              ? `Seluruh informasi Cabang ${branch}. Kepala cabang: ${head ?? "-"}.`
+              : `Data penjualan, retur, ulasan, dan stok untuk Cabang ${branch}.`
+        }
       />
       <section className="section">
         <div className="container">
-          <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-2 overflow-x-auto" role="tablist">
               {tabs.map((t) => (
                 <button
                   key={t}
                   role="tab"
-                  aria-selected={tab === t}
+                  aria-selected={active === t}
                   onClick={() => setTab(t)}
-                  className={`shrink-0 rounded-xl px-5 py-3 text-sm font-bold ${tab === t ? "bg-[#12285C] text-white" : "bg-[#F4F6FA] text-slate-600"}`}
+                  className={`shrink-0 rounded-xl px-5 py-3 text-sm font-bold ${active === t ? "bg-[#12285C] text-white" : "bg-[#F4F6FA] text-slate-600"}`}
                 >
                   {t}
                 </button>
               ))}
             </div>
-            <Button
-              variant="ghost"
-              className="text-xs"
-              onClick={() => {
-                sessionStorage.removeItem("hartini.admin");
-                setAuthed(false);
-                setPin("");
-              }}
-            >
-              Keluar
-            </Button>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-[#F4F6FA] px-3 py-1.5 text-xs font-bold text-[#12285C]">
+                {ROLE_LABEL[session.role]}
+                {branch ? ` · ${branch}` : ""}
+              </span>
+              <Button
+                variant="ghost"
+                className="text-xs"
+                onClick={() => {
+                  sessionStorage.removeItem("hartini.admin");
+                  setSession(null);
+                  setPin("");
+                }}
+              >
+                Keluar
+              </Button>
+            </div>
           </div>
           {notice && (
             <p
@@ -4035,23 +4729,31 @@ function AdminPage({
               <Check size={14} /> {notice}
             </p>
           )}
-          {tab === "Dasbor Direksi" &&
-            (dbError || !db || !report ? (
-              <LoadingBlock error={dbError} />
+          {(active === "Dasbor Direksi" || active === "Dasbor Cabang") &&
+            (!db || !report ? (
+              loading
             ) : (
               <AdminExecutive
                 db={db}
                 report={report}
                 orders={orders}
-                reviews={reviews}
-                returns={ledger.returns}
+                reviews={branch ? reviews.filter((r) => r.branch === branch) : reviews}
+                returns={returns}
+                lockBranch={branch}
               />
             ))}
-          {tab === "Data Penjualan" && (
-            <AdminSales report={dbError ? null : report} orders={orders} onDemo={addDemo} />
+          {active === "Data Penjualan" && (
+            <AdminSales
+              report={dbError ? null : report}
+              orders={orders}
+              onDemo={addDemo}
+              scopeLabel={branch ? `Cabang ${branch}` : "Seluruh cabang"}
+            />
           )}
-          {tab === "Review Barang" && <AdminReviews reviews={reviews} update={updateReview} />}
-          {tab === "Pengiriman" && (
+          {active === "Review Barang" && (
+            <AdminReviews reviews={reviews} update={updateReview} branch={branch} />
+          )}
+          {active === "Pengiriman" && (
             <AdminShipping
               orders={orders}
               update={updateOrder}
@@ -4061,9 +4763,11 @@ function AdminPage({
               say={say}
             />
           )}
-          {tab === "Retur" && <AdminReturns ledger={ledger} />}
-          {tab === "Laporan Keuangan" &&
-            (dbError ? <LoadingBlock error /> : <AdminFinance report={report} />)}
+          {active === "Retur" && <AdminReturns ledger={ledger} branch={branch} />}
+          {active === "Stok" && <AdminStock branch={branch} />}
+          {active === "Pelanggan" && <AdminCustomers branch={branch} />}
+          {active === "Laporan Keuangan" && (report ? <AdminFinance report={report} /> : loading)}
+          {active === "Rekonsiliasi" && <AdminRecon />}
         </div>
       </section>
     </main>
@@ -4091,9 +4795,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
-  const [reviews, setReviews] = useState<Review[]>(() => loadReviews());
+  const { reviews, addReview, updateReview } = useReviews();
+  const me = useCustomer();
   useEffect(() => saveOrders(orders), [orders]);
-  useEffect(() => saveReviews(reviews), [reviews]);
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 650);
     return () => clearTimeout(timer);
@@ -4103,7 +4807,7 @@ export default function App() {
       setPage(next);
       setPageData(data);
       window.scrollTo({ top: 0, behavior: "smooth" });
-      document.title = `${({ home: "Beranda", catalog: "Katalog Produk", detail: "Detail Produk", installment: "Simulator Cicilan", cart: "Keranjang", checkout: "Checkout", branches: "Lokasi Cabang", member: "Program Member", promo: "Promo", about: "Tentang Kami", career: "Karir", contact: "Kontak", faq: "FAQ", orders: "Pesanan Saya", admin: "Dasbor Admin" } as Record<Page, string>)[next]} | HARTINI ELECTRONIC`;
+      document.title = `${({ home: "Beranda", catalog: "Katalog Produk", detail: "Detail Produk", installment: "Simulator Cicilan", cart: "Keranjang", checkout: "Checkout", branches: "Lokasi Cabang", member: "Program Member", promo: "Promo", about: "Tentang Kami", career: "Karir", contact: "Kontak", faq: "FAQ", orders: "Pesanan Saya", account: "Akun Saya", admin: "Dasbor Admin" } as Record<Page, string>)[next]} | HARTINI ELECTRONIC`;
     };
     return () => {
       globalNavigate = null;
@@ -4124,12 +4828,7 @@ export default function App() {
     });
     notify(`${product.name} ditambahkan ke keranjang.`);
   };
-  const placeOrder = (data: {
-    customer: string;
-    branch: string;
-    delivery: Order["delivery"];
-    payment: string;
-  }) => {
+  const placeOrder = (data: CheckoutData) => {
     const order: Order = {
       id: newOrderId(),
       createdAt: new Date().toISOString(),
@@ -4164,28 +4863,22 @@ export default function App() {
     );
   const submitReview = (order: Order, productId: string, rating: number, comment: string) => {
     if (order.status !== "Selesai") return;
-    setReviews((current) =>
-      current.some((r) => r.orderId === order.id && r.productId === productId)
-        ? current
-        : [
-            ...current,
-            {
-              id: `${order.id}-${productId}`,
-              orderId: order.id,
-              productId,
-              customer: order.customer,
-              rating,
-              comment,
-              createdAt: new Date().toISOString(),
-            },
-          ],
-    );
+    addReview({
+      id: `${order.id}-${productId}`,
+      orderId: order.id,
+      productId,
+      customer: order.customer,
+      customerId: order.customerId,
+      branch: order.branch,
+      source: "web",
+      rating,
+      comment,
+      createdAt: new Date().toISOString(),
+    });
     notify("Terima kasih! Ulasan Anda sudah dikirim.");
   };
   const updateOrder = (id: string, patch: Partial<Order>) =>
     setOrders((current) => current.map((o) => (o.id === id ? { ...o, ...patch } : o)));
-  const updateReview = (id: string, patch: Partial<Review>) =>
-    setReviews((current) => current.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const addDemo = () => {
     const names = ["Siti Rahma", "Budi Santoso", "Wayan Adi", "Maria Tamelan"];
     const statuses: Order["status"][] = ["Diproses", "Dalam Pengiriman", "Siap Diambil", "Selesai"];
@@ -4239,9 +4932,17 @@ export default function App() {
         remove={(id) => setCart((items) => items.filter((item) => item.product.id !== id))}
       />
     ),
-    checkout: <CheckoutPage cart={cart} placeOrder={placeOrder} />,
+    checkout: me ? (
+      <CheckoutPage key={me.id} me={me} cart={cart} placeOrder={placeOrder} />
+    ) : (
+      <LoginRequired
+        title="Checkout"
+        text="Masuk dulu supaya pesanan tercatat di akun member Anda."
+      />
+    ),
+    account: <AccountPage orders={orders} />,
     branches: <BranchesPage />,
-    member: <MemberPage notify={notify} />,
+    member: <MemberPage />,
     promo: <PromoPage />,
     about: <AboutPage />,
     career: <CareerPage notify={notify} />,
@@ -4256,9 +4957,11 @@ export default function App() {
         addDemo={addDemo}
       />
     ),
-    orders: (
+    orders: !me ? (
+      <LoginRequired title="Pesanan Saya" text="Masuk untuk melihat pesanan Anda." />
+    ) : (
       <OrdersPage
-        orders={orders}
+        orders={orders.filter((o) => o.customerId === me.id)}
         reviews={reviews}
         advance={advanceOrder}
         submitReview={submitReview}

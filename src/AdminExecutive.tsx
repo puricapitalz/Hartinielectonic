@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { Order, Review } from "./orders";
 import {
   MONTHS,
+  isCountedReturn,
   pnl,
   serialToDate,
   type Report,
@@ -578,16 +579,19 @@ export default function AdminExecutive({
   orders,
   reviews,
   returns,
+  lockBranch,
 }: {
   db: SalesDb;
   report: Report;
   orders: Order[];
   reviews: Review[];
   returns: ReturnEntry[];
+  /** Kepala cabang: dasbor dikunci ke cabangnya, tanpa perbandingan antarcabang. */
+  lockBranch?: string;
 }) {
   const model = useMemo(() => buildModel(db), [db]);
   const [month, setMonth] = useState(11);
-  const [branch, setBranch] = useState(ALL);
+  const [branch, setBranch] = useState(lockBranch ?? ALL);
   const [cardPeriod, setCardPeriod] = useState<"bulan" | "ytd">("bulan");
   const [sortKey, setSortKey] = useState<"profit" | "ach" | "margin">("profit");
 
@@ -757,6 +761,25 @@ export default function AdminExecutive({
           </>
         ),
       });
+  } else if (lockBranch) {
+    const ratio = y.opex.total / (y.net || 1);
+    notes.push({
+      s: y.operatingProfit < 0 ? "bad" : statusOf(achProfitY),
+      text: (
+        <>
+          Laba bersih cabang sejak Januari <b>{rp(y.operatingProfit)}</b>, {pct(achProfitY, 0)} dari
+          target {rp(profitTargetY)}.
+        </>
+      ),
+    });
+    notes.push({
+      s: ratio <= TARGET.opexRatio ? "good" : "bad",
+      text: (
+        <>
+          Rasio biaya operasional {pct(ratio)} terhadap omzet (batas {pct(TARGET.opexRatio, 0)}).
+        </>
+      ),
+    });
   } else {
     const rank =
       [...ytdCards]
@@ -830,7 +853,9 @@ export default function AdminExecutive({
             H
           </span>
           <div>
-            <p className="font-heading text-lg font-bold leading-tight">HARTINI · Dasbor Direksi</p>
+            <p className="font-heading text-lg font-bold leading-tight">
+              {lockBranch ? `HARTINI · Dasbor Cabang ${lockBranch}` : "HARTINI · Dasbor Direksi"}
+            </p>
             <p className="text-xs text-white/65">
               {branchLabel} · {MONTHS[month]} 2027
             </p>
@@ -852,7 +877,10 @@ export default function AdminExecutive({
               ))}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.08em] text-white/65">
+          <label
+            hidden={!!lockBranch}
+            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.08em] text-white/65"
+          >
             Lokasi
             <select
               id="exec-branch"
@@ -869,12 +897,14 @@ export default function AdminExecutive({
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[230px_minmax(0,1fr)_250px]">
+      <div
+        className={`grid gap-5 ${lockBranch ? "xl:grid-cols-[minmax(0,1fr)_250px]" : "xl:grid-cols-[230px_minmax(0,1fr)_250px]"}`}
+      >
         {/* daftar cabang */}
         <Panel
           title="Cabang"
           note={`% target ${SHORT[month]}`}
-          className="order-3 xl:order-none xl:row-span-2"
+          className={lockBranch ? "hidden" : "order-3 xl:order-none xl:row-span-2"}
         >
           <ul className="-mx-2 grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1">
             {[{ b: ALL, ach: v.companyAch }, ...[...v.achMonth].sort((a, b) => b.ach - a.ach)].map(
@@ -1041,7 +1071,10 @@ export default function AdminExecutive({
       </div>
 
       {/* catatan direksi */}
-      <Panel title="Catatan untuk direksi" note="Disusun otomatis dari data periode terpilih">
+      <Panel
+        title={lockBranch ? "Catatan untuk kepala cabang" : "Catatan untuk direksi"}
+        note="Disusun otomatis dari data periode terpilih"
+      >
         <ul className="grid gap-3">
           {notes.map((n, i) => (
             <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-slate-700">
@@ -1059,6 +1092,7 @@ export default function AdminExecutive({
 
       {/* kartu skor cabang */}
       <Panel
+        className={lockBranch ? "hidden" : ""}
         title="Kartu skor cabang"
         note={
           <span className="flex flex-wrap items-center gap-2">
@@ -1285,7 +1319,7 @@ export default function AdminExecutive({
               }))}
           />
         </Panel>
-        <Panel title="Kanal online & layanan" note="Dari pesanan dan ulasan di website">
+        <Panel title="Ulasan, online & retur" note="Ulasan pelanggan, pesanan web, klaim retur">
           <dl className="grid grid-cols-2 gap-4 text-sm">
             {[
               ["Pesanan online", orders.length.toLocaleString("id-ID")],
@@ -1295,8 +1329,11 @@ export default function AdminExecutive({
                 reviewsVisible.length ? `${dec(avgRating, 1)} / 5` : "belum ada",
               ],
               ["Jumlah ulasan", reviewsVisible.length.toLocaleString("id-ID")],
-              ["Retur tercatat", returns.length.toLocaleString("id-ID")],
-              ["Nilai retur", rp(returns.reduce((s, r) => s + r.omzet, 0))],
+              ["Klaim retur", returns.length.toLocaleString("id-ID")],
+              [
+                "Retur selesai (omzet)",
+                rp(returns.filter(isCountedReturn).reduce((s, r) => s + r.omzet, 0)),
+              ],
             ].map(([k, val]) => (
               <div key={k} className="rounded-xl bg-slate-50 p-3">
                 <dt className="text-[11px] font-bold uppercase tracking-[.06em] text-slate-500">

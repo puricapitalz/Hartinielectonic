@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Order } from "./orders";
 
-export type TxStatus = "Diproses" | "Dalam Pengiriman" | "Siap Diambil" | "Selesai";
+export type TxStatus = "Diproses" | "Dalam Pengiriman" | "Siap Diambil" | "Selesai" | "Dibatalkan";
 export type Delivery = "Kirim ke alamat" | "Ambil di toko";
 
 export type Tx = {
@@ -19,6 +19,20 @@ export type Tx = {
   hpp: number;
   pay: string;
   segment: string;
+  customer: string;
+  payStatus: string;
+};
+
+/** Pengiriman dari sheet Transaksi Layanan + Detail (kode L-01/L-02/L-03). */
+export type Shipment = {
+  order: string;
+  code: string;
+  /** status asli Excel: Selesai, Dalam Proses, Dijadwalkan, Dibatalkan */
+  status: string;
+  orderSerial: number;
+  doneSerial: number | null;
+  fee: number;
+  courier: string;
 };
 
 export type OpexCats = {
@@ -34,6 +48,9 @@ export type SalesDb = {
   rows: Tx[];
   skus: Record<string, [string, string, number]>; // sku -> [nama, kategori, harga beli]
   opex: Array<{ month: number; branch: string } & OpexCats>;
+  /** retur dari sheet Keluhan & Klaim Garansi (penanganan Refund / Retur) */
+  returns: ReturnEntry[];
+  ship: Record<string, Shipment>;
 };
 
 /** Tanggal acuan laporan = 31 Des 2027 (serial Excel). */
@@ -76,7 +93,24 @@ function loadDb(): Promise<SalesDb> {
         hpp: a[8],
         pay: a[9],
         segment: a[10],
+        customer: a[11],
+        payStatus: a[12],
       })),
+      returns: j.returns as ReturnEntry[],
+      ship: Object.fromEntries(
+        Object.entries(j.ship as Record<string, any[]>).map(([k, a]) => [
+          k,
+          {
+            order: a[0],
+            code: a[1],
+            status: a[2],
+            orderSerial: a[3],
+            doneSerial: a[4],
+            fee: a[5],
+            courier: a[6],
+          },
+        ]),
+      ),
       skus: j.skus,
       opex: (j.opex as any[][]).map((a) => ({
         month: a[0],
@@ -108,37 +142,31 @@ export function useSalesDb() {
   return { db, error };
 }
 
-function hash(text: string) {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 4294967296;
-}
+const SHIP_STATUS: Record<string, TxStatus> = {
+  Selesai: "Selesai",
+  "Dalam Proses": "Dalam Pengiriman",
+  Dijadwalkan: "Diproses",
+  Dibatalkan: "Dibatalkan",
+};
 
 /**
- * Cara penerimaan & status pengiriman acak (deterministik per nomor transaksi)
- * yang mengikuti tanggal transaksi: transaksi lama sudah selesai, transaksi
- * terbaru tersebar di berbagai tahap.
+ * Cara penerimaan & status sesuai database: transaksi yang punya order layanan
+ * pengiriman (L-01/L-02/L-03) = dikirim, statusnya dari sheet Transaksi Layanan.
+ * Transaksi tanpa pengiriman = dibawa/diambil langsung di toko (Selesai).
  */
-export function txMeta(t: Tx): { delivery: Delivery; status: TxStatus } {
-  const ship = hash(t.trx + "d") < (t.segment === "Korporat" ? 0.9 : 0.5);
-  const delivery: Delivery = ship ? "Kirim ke alamat" : "Ambil di toko";
-  const progress: TxStatus = ship ? "Dalam Pengiriman" : "Siap Diambil";
-  const r = hash(t.trx + "s");
-  const age = REF_SERIAL - t.serial;
-  let status: TxStatus;
-  if (age >= 10) status = "Selesai";
-  else if (age >= 3) status = r < 0.7 ? "Selesai" : progress;
-  else status = r < 0.4 ? "Diproses" : r < 0.9 ? progress : "Selesai";
-  return { delivery, status };
+export function txMeta(
+  t: Tx,
+  db: SalesDb,
+): { delivery: Delivery; status: TxStatus; ship?: Shipment } {
+  const ship = db.ship[t.trx];
+  if (!ship) return { delivery: "Ambil di toko", status: "Selesai" };
+  return { delivery: "Kirim ke alamat", status: SHIP_STATUS[ship.status] ?? "Diproses", ship };
 }
 
 export type ReturnEntry = {
   id: string;
   ref: string; // nomor transaksi toko atau nomor pesanan online
-  source: "toko" | "online";
+  source: "toko" | "online" | "excel";
   branch: string;
   sku: string;
   name: string;
@@ -147,7 +175,15 @@ export type ReturnEntry = {
   hpp: number;
   date: string;
   reason: string;
+  /** status penanganan klaim (Excel); retur dari web dianggap Selesai */
+  status?: string;
+  customer?: string;
+  claimDate?: string;
+  pic?: string;
 };
+
+/** Hanya retur yang selesai yang mengurangi omzet. */
+export const isCountedReturn = (r: ReturnEntry) => !r.status || r.status === "Selesai";
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -159,13 +195,17 @@ function readJson<T>(key: string, fallback: T): T {
 }
 
 /** Override status transaksi toko + buku retur (disimpan di localStorage). */
-export function useLedgerStore() {
+export function useLedgerStore(excelReturns: ReturnEntry[] = []) {
   const [overrides, setOverrides] = useState<Record<string, TxStatus>>(() =>
     readJson("hartini.txStatus", {}),
   );
-  const [returns, setReturns] = useState<ReturnEntry[]>(() => readJson("hartini.returns", []));
+  const [localReturns, setReturns] = useState<ReturnEntry[]>(() => readJson("hartini.returns", []));
+  const returns = useMemo(() => [...localReturns, ...excelReturns], [localReturns, excelReturns]);
   useEffect(() => localStorage.setItem("hartini.txStatus", JSON.stringify(overrides)), [overrides]);
-  useEffect(() => localStorage.setItem("hartini.returns", JSON.stringify(returns)), [returns]);
+  useEffect(
+    () => localStorage.setItem("hartini.returns", JSON.stringify(localReturns)),
+    [localReturns],
+  );
 
   const setTxStatus = useCallback(
     (trx: string, status: TxStatus) => setOverrides((c) => ({ ...c, [trx]: status })),
@@ -252,6 +292,7 @@ export function buildReport(db: SalesDb, orders: Order[], returns: ReturnEntry[]
     }
   }
   for (const r of returns) {
+    if (!isCountedReturn(r)) continue;
     const a = ensure(r.branch)[new Date(r.date).getMonth()].ret;
     a.omzet += r.omzet;
     a.hpp += r.hpp;
@@ -332,4 +373,17 @@ export function downloadCsv(filename: string, rows: Array<Array<string | number>
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/** Salinan database yang hanya berisi satu cabang (untuk Kepala Cabang & Staff). */
+export function scopeDb(db: SalesDb, branch: string): SalesDb {
+  const rows = db.rows.filter((r) => r.branch === branch);
+  const keep = new Set(rows.map((r) => r.trx));
+  return {
+    ...db,
+    rows,
+    opex: db.opex.filter((o) => o.branch === branch),
+    returns: db.returns.filter((r) => r.branch === branch),
+    ship: Object.fromEntries(Object.entries(db.ship).filter(([k]) => keep.has(k))),
+  };
 }
