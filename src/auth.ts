@@ -3,7 +3,7 @@
 // dibaca di browser, belum diverifikasi server. Cukup untuk prototipe; untuk
 // produksi verifikasi token di backend (mis. Supabase Auth).
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { LAST_CUSTOMER_NO, params, pointsFor, tierFor } from "./data";
+import { LAST_CUSTOMER_NO, branches, params, pointsFor, tierFor } from "./data";
 import type { Order } from "./orders";
 
 export const GOOGLE_CLIENT_ID: string = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
@@ -12,6 +12,8 @@ export type Customer = {
   id: string;
   name: string;
   city: string;
+  /** provinsi alamat; pelanggan database memakai provinsi cabang asalnya */
+  province?: string;
   branch: string;
   /** yyyy-mm-dd */
   joined: string;
@@ -58,6 +60,7 @@ export function loadExcelCustomers() {
         id: r[0],
         name: r[1],
         city: r[2],
+        province: branches.find((b) => b.branch === r[3])?.province,
         branch: r[3],
         joined: serialToIso(r[4]) ?? "2027-01-01",
         baseTotal: r[5],
@@ -251,3 +254,7 @@ export function membershipOf(c: Customer, orders: Order[], today = new Date()): 
     status,
   };
 }
+
+/** Provinsi alamat pelanggan (akun lama tanpa provinsi memakai provinsi cabang asal). */
+export const provinceOf = (c: Customer) =>
+  c.province ?? branches.find((b) => b.branch === c.branch)?.province ?? "DKI Jakarta";

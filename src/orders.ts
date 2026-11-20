@@ -23,6 +23,8 @@ export type Order = {
   /** kode tarif pengiriman dari sheet Layanan Purna Jual (L-01/L-02/L-03) */
   shippingCode?: string;
   shippingFee?: number;
+  destCity?: string;
+  destProvince?: string;
   branch?: string;
   delivery: "Kirim ke alamat" | "Ambil di toko";
   payment: string;

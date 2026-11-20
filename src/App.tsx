@@ -53,9 +53,12 @@ import {
   branches,
   categories,
   formatPrice,
+  nearestBranch,
   params,
   pointsFor,
   products,
+  provinces,
+  quoteShipping,
   tariffs,
   tierFor,
   type Product,
@@ -66,6 +69,7 @@ import {
   GOOGLE_CLIENT_ID,
   findByEmail,
   membershipOf,
+  provinceOf,
   nextCustomerId,
   renderGoogleButton,
   saveAccount,
@@ -1485,6 +1489,8 @@ type CheckoutData = {
   payment: string;
   shippingCode?: string;
   shippingFee: number;
+  destCity?: string;
+  destProvince?: string;
 };
 
 function LoginRequired({ title, text }: { title: string; text: string }) {
@@ -1514,14 +1520,18 @@ function CheckoutPage({
   const [customer, setCustomer] = useState(me.name);
   const [phone, setPhone] = useState(me.phone);
   const [address, setAddress] = useState(me.address);
-  const [branch, setBranch] = useState(
-    branches.some((b) => b.branch === me.branch) ? me.branch : "Jakarta",
-  );
+  const [destCity, setDestCity] = useState(me.city);
+  const [destProvince, setDestProvince] = useState(provinceOf(me));
+  // cabang pengirim mengikuti alamat tujuan, kecuali pembeli memilih sendiri
+  const [pickedBranch, setPickedBranch] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<Order["delivery"]>("Kirim ke alamat");
-  const [shipCode, setShipCode] = useState(tariffs[0].code);
   const [payment, setPayment] = useState("Transfer Bank");
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
-  const tariff = tariffs.find((t) => t.code === shipCode) ?? tariffs[0];
+  const auto = nearestBranch(destCity, destProvince);
+  const branch = pickedBranch ?? auto.branch;
+  const from = branches.find((b) => b.branch === branch) ?? auto;
+  const quote = quoteShipping(from, destCity || "-", destProvince);
+  const tariff = quote.tariff;
   const shippingFee = delivery === "Kirim ke alamat" ? tariff.fee : 0;
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -1535,6 +1545,8 @@ function CheckoutPage({
       payment,
       shippingCode: delivery === "Kirim ke alamat" ? tariff.code : undefined,
       shippingFee,
+      destCity: delivery === "Kirim ke alamat" ? destCity.trim() : undefined,
+      destProvince: delivery === "Kirim ke alamat" ? destProvince : undefined,
     });
   };
   if (!cart.length)
@@ -1607,46 +1619,76 @@ function CheckoutPage({
               ))}
             </div>
             {delivery === "Kirim ke alamat" && (
-              <div className="mt-4 grid gap-2">
-                <p className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
-                  Tujuan pengiriman (tarif resmi)
-                </p>
-                {tariffs.map((t) => (
-                  <label
-                    key={t.code}
-                    className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-sm ${shipCode === t.code ? "border-[#12285C] bg-[#F4F6FA]" : "border-slate-200"}`}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                  Kota / kabupaten tujuan
+                  <input
+                    id="co-city"
+                    value={destCity}
+                    onChange={(e) => setDestCity(e.target.value)}
+                    required
+                    className="field mt-2 font-normal normal-case tracking-normal"
+                    placeholder="mis. Sidoarjo"
+                  />
+                </label>
+                <label className="block text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                  Provinsi tujuan
+                  <select
+                    id="co-province"
+                    value={destProvince}
+                    onChange={(e) => setDestProvince(e.target.value)}
+                    className="field mt-2 font-normal normal-case tracking-normal"
                   >
-                    <span className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="ship"
-                        checked={shipCode === t.code}
-                        onChange={() => setShipCode(t.code)}
-                      />
-                      <span>
-                        <strong className="block text-[#12285C]">{t.name}</strong>
-                        <span className="text-xs text-slate-500">{t.sla}</span>
-                      </span>
-                    </span>
-                    <strong className="shrink-0 text-[#12285C]">{formatPrice(t.fee)}</strong>
-                  </label>
-                ))}
+                    {provinces.map((p) => (
+                      <option key={p}>{p}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
             )}
             <label className="mt-4 block text-xs font-extrabold uppercase tracking-wide text-slate-500">
               {delivery === "Ambil di toko" ? "Cabang pengambilan" : "Cabang pengirim"}
               <select
+                id="co-branch"
                 value={branch}
-                onChange={(e) => setBranch(e.target.value)}
+                onChange={(e) => setPickedBranch(e.target.value)}
                 className="field mt-2 font-normal normal-case tracking-normal"
               >
                 {branches.map((b) => (
-                  <option key={b.code} value={b.name.replace("Hartini ", "")}>
-                    {b.city}, {b.province}
+                  <option key={b.code} value={b.branch}>
+                    {b.branch}, {b.province}
+                    {b.branch === auto.branch ? " (terdekat)" : ""}
                   </option>
                 ))}
               </select>
             </label>
+            {delivery === "Kirim ke alamat" && (
+              <div
+                role="status"
+                className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#12285C] bg-[#F4F6FA] p-4 text-sm"
+              >
+                <span className="min-w-0">
+                  <strong className="block text-[#12285C]">
+                    {tariff.code} · {tariff.name}
+                  </strong>
+                  <span className="text-xs text-slate-500">
+                    {quote.reason}. {tariff.sla}.
+                  </span>
+                  {branch !== auto.branch && (
+                    <button
+                      type="button"
+                      onClick={() => setPickedBranch(null)}
+                      className="mt-1 block text-xs font-bold text-[#FF7A1A]"
+                    >
+                      Kirim dari cabang terdekat ({auto.branch}) agar ongkir lebih murah
+                    </button>
+                  )}
+                </span>
+                <strong className="shrink-0 font-heading text-lg text-[#12285C]">
+                  {formatPrice(tariff.fee)}
+                </strong>
+              </div>
+            )}
           </CheckoutBlock>
           <CheckoutBlock title="3. Metode Pembayaran">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -2675,7 +2717,7 @@ function AccountPage({ orders }: { orders: Order[] }) {
               {[
                 ["Email", me.email],
                 ["No. HP", me.phone],
-                ["Kota", me.city],
+                ["Kota", `${me.city}, ${provinceOf(me)}`],
                 ["Cabang asal", me.branch],
                 ["Tipe pelanggan", me.type],
                 [
@@ -2779,6 +2821,7 @@ function AccountPage({ orders }: { orders: Order[] }) {
                   email: pending.email,
                   phone: v("phone"),
                   city: v("city"),
+                  province: v("province"),
                   branch: v("branch"),
                   address: v("address"),
                   type: v("type") === "Korporat" ? "Korporat" : "Perorangan",
@@ -2824,6 +2867,17 @@ function AccountPage({ orders }: { orders: Order[] }) {
                 required
                 aria-label="Kota"
               />
+              <select
+                id="acc-province"
+                name="province"
+                className="field"
+                aria-label="Provinsi"
+                defaultValue="DKI Jakarta"
+              >
+                {provinces.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
               <select
                 id="acc-branch"
                 name="branch"
@@ -3652,6 +3706,12 @@ function ShipmentCard({
             {order.branch || "Jakarta"} • {order.delivery} • {order.payment} •{" "}
             {new Date(order.createdAt).toLocaleDateString("id-ID")}
           </p>
+          {order.destCity && (
+            <p className="mt-0.5 text-xs text-slate-500">
+              Kirim {order.branch} → {order.destCity}, {order.destProvince} • {order.shippingCode}{" "}
+              {formatPrice(order.shippingFee ?? 0)}
+            </p>
+          )}
         </div>
         <span
           className={`rounded-full px-3 py-1 text-[11px] font-bold ${statusBadge[order.status]}`}
