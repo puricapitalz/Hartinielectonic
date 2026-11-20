@@ -74,6 +74,9 @@ def main(xlsx):
             {"name": "Gold", "min": num(par["Tier Gold - min. total belanja (Rp)"])},
             {"name": "Platinum", "min": num(par["Tier Platinum - min. total belanja (Rp)"])},
         ],
+        "leadTime": num(par["Lead Time Order Supplier (bulan)"]),
+        "coverTarget": num(par["Target Stok Cover (bulan)"]),
+        "overstock": num(par["Batas Overstock (bulan)"]),
         "activeDays": num(par["Status Aktif - maks. hari sejak belanja terakhir"]),
         "lessActiveDays": num(par["Status Kurang Aktif - maks. hari sejak belanja terakhir"]),
     }

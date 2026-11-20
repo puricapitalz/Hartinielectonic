@@ -1,6 +1,7 @@
 // Tab admin tambahan: Stok, Pelanggan, Rekonsiliasi (database Excel vs web).
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { loadExcelCustomers, type Customer } from "./auth";
+import { RESALEABLE_REASONS, useLiveStock } from "./stock";
 import { categories, formatPrice, params, pointsFor, products, tierFor } from "./data";
 
 const card = "rounded-2xl border border-slate-200 bg-white";
@@ -65,44 +66,53 @@ export function AdminStock({ branch }: { branch?: string }) {
   const [status, setStatus] = useState("Semua");
   const [cat, setCat] = useState("Semua");
   const [q, setQ] = useState("");
-  const count = (s: string) => products.filter((p) => p.stockStatus === s).length;
-  const list = products
+  const live = useLiveStock();
+  const rows = products.map((p) => ({ p, s: live[p.id] }));
+  const count = (st: string) => rows.filter((r) => r.s.status === st).length;
+  const list = rows
     .filter(
-      (p) =>
-        (status === "Semua" || p.stockStatus === status) &&
+      ({ p, s }) =>
+        (status === "Semua" || s.status === status) &&
         (cat === "Semua" || p.category === cat) &&
         (!q || `${p.id} ${p.name} ${p.brand}`.toLowerCase().includes(q.toLowerCase())),
     )
     .sort(
       (a, b) =>
-        STOCK_ORDER.indexOf(a.stockStatus) - STOCK_ORDER.indexOf(b.stockStatus) ||
-        a.cover - b.cover,
+        STOCK_ORDER.indexOf(a.s.status) - STOCK_ORDER.indexOf(b.s.status) || a.s.cover - b.s.cover,
     );
-  const reorderCost = products.reduce((s, p) => s + p.reorder * p.cost, 0);
-  const stockValue = products.reduce((s, p) => s + p.stock * p.cost, 0);
+  const reorderCost = rows.reduce((t, { p, s }) => t + s.reorder * p.cost, 0);
+  const stockValue = rows.reduce((t, { p, s }) => t + s.stock * p.cost, 0);
+  const out = rows.reduce((t, r) => t + r.s.out, 0);
+  const back = rows.reduce((t, r) => t + r.s.back, 0);
   return (
     <div className="space-y-5">
       <p className="text-xs leading-5 text-slate-500">
-        Sumber: sheet “Stok Inventory” per 31 Desember 2027. Stok dikelola terpusat untuk seluruh
-        cabang{branch ? `, termasuk ${branch}` : ""}. Rekomendasi order = rata-rata jual × (target
-        cover {2} bulan + lead time {1} bulan) − stok akhir.
+        Titik awal: “Stok Akhir” sheet Stok Inventory per 31 Desember 2027. Stok kini = stok awal −
+        unit pesanan web + unit retur yang masih layak jual (alasan:{" "}
+        {RESALEABLE_REASONS.join(", ").toLowerCase()}). Barang retur rusak tidak kembali ke stok
+        jual. Status dan order ulang memakai rumus Excel: cukup &lt; {params.coverTarget} bulan =
+        menipis, ≥ {params.overstock} bulan = overstock, order ulang = rata-rata jual × (
+        {params.coverTarget} + {params.leadTime} bulan lead time) − stok. Stok dikelola terpusat
+        untuk seluruh cabang{branch ? `, termasuk ${branch}` : ""}.
       </p>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {STOCK_ORDER.map((s) => (
+        {STOCK_ORDER.map((st) => (
           <button
-            key={s}
-            onClick={() => setStatus(status === s ? "Semua" : s)}
+            key={st}
+            onClick={() => setStatus(status === st ? "Semua" : st)}
             className="text-left"
           >
             <Stat
-              label={s}
-              value={`${count(s)} SKU`}
-              hint={status === s ? "filter aktif" : undefined}
+              label={st}
+              value={`${count(st)} SKU`}
+              hint={status === st ? "filter aktif" : undefined}
             />
           </button>
         ))}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Keluar (pesanan web)" value={`${out.toLocaleString("id-ID")} unit`} />
+        <Stat label="Masuk (retur layak jual)" value={`${back.toLocaleString("id-ID")} unit`} />
         <Stat label="Nilai stok (harga beli)" value={formatPrice(stockValue)} />
         <Stat label="Estimasi biaya order ulang" value={formatPrice(reorderCost)} />
       </div>
@@ -134,52 +144,60 @@ export function AdminStock({ branch }: { branch?: string }) {
           className="field"
           aria-label="Status stok"
         >
-          {["Semua", ...STOCK_ORDER].map((s) => (
-            <option key={s}>{s}</option>
+          {["Semua", ...STOCK_ORDER].map((st) => (
+            <option key={st}>{st}</option>
           ))}
         </select>
       </div>
       <div className={`${card} overflow-x-auto`}>
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full min-w-[1000px] text-left text-sm">
           <thead className="bg-[#F4F6FA] text-xs text-slate-500">
             <tr>
               <th className="p-3">Produk</th>
-              <th className="p-3 text-right">Stok akhir</th>
+              <th className="p-3 text-right">Stok Excel</th>
+              <th className="p-3 text-right">Keluar web</th>
+              <th className="p-3 text-right">Retur masuk</th>
+              <th className="p-3 text-right">Stok kini</th>
               <th className="p-3 text-right">Minimum</th>
-              <th className="p-3 text-right">Jual / bulan</th>
               <th className="p-3 text-right">Cukup (bulan)</th>
               <th className="p-3">Status</th>
               <th className="p-3 text-right">Order ulang</th>
             </tr>
           </thead>
           <tbody>
-            {list.map((p) => (
+            {list.map(({ p, s }) => (
               <tr key={p.id} className="border-t border-slate-100 tabular-nums">
-                <td className="max-w-[280px] p-3">
+                <td className="max-w-[260px] p-3">
                   <strong className="block truncate text-[#12285C]">{p.name}</strong>
                   <span className="text-xs text-slate-400">
                     {p.id} • {p.category} • {p.supplier}
                   </span>
                 </td>
-                <td className="p-3 text-right font-bold">{p.stock.toLocaleString("id-ID")}</td>
-                <td className="p-3 text-right">{p.stockMin.toLocaleString("id-ID")}</td>
-                <td className="p-3 text-right">{p.avgMonthly.toLocaleString("id-ID")}</td>
+                <td className="p-3 text-right text-slate-500">{s.base.toLocaleString("id-ID")}</td>
                 <td className="p-3 text-right">
-                  {p.cover.toLocaleString("id-ID", { maximumFractionDigits: 1 })}
+                  {s.out ? `−${s.out.toLocaleString("id-ID")}` : "-"}
+                </td>
+                <td className="p-3 text-right">
+                  {s.back ? `+${s.back.toLocaleString("id-ID")}` : "-"}
+                </td>
+                <td className="p-3 text-right font-bold">{s.stock.toLocaleString("id-ID")}</td>
+                <td className="p-3 text-right">{p.stockMin.toLocaleString("id-ID")}</td>
+                <td className="p-3 text-right">
+                  {s.cover.toLocaleString("id-ID", { maximumFractionDigits: 1 })}
                 </td>
                 <td className="p-3">
                   <span
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${STOCK_STYLE[p.stockStatus]}`}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${STOCK_STYLE[s.status]}`}
                   >
-                    {p.stockStatus}
+                    {s.status}
                   </span>
                 </td>
                 <td className="p-3 text-right">
-                  {p.reorder > 0 ? (
+                  {s.reorder > 0 ? (
                     <>
-                      <b>{p.reorder.toLocaleString("id-ID")} unit</b>
+                      <b>{s.reorder.toLocaleString("id-ID")} unit</b>
                       <span className="block text-xs text-slate-400">
-                        {formatPrice(p.reorder * p.cost)}
+                        {formatPrice(s.reorder * p.cost)}
                       </span>
                     </>
                   ) : (
@@ -216,10 +234,14 @@ export function AdminCustomers({ branch }: { branch?: string }) {
       .catch(() => setExcel([]));
   }, []);
   useEffect(() => setPage(0), [q, tier]);
-  const all = useMemo(
-    () => [...readAccounts(), ...(excel ?? [])].filter((c) => !branch || c.branch === branch),
-    [excel, branch],
-  );
+  const all = useMemo(() => {
+    // akun web menggantikan baris database dengan ID yang sama (pelanggan lama yang terhubung Google)
+    const own = readAccounts();
+    const ids = new Set(own.map((c) => c.id));
+    return [...own, ...(excel ?? []).filter((c) => !ids.has(c.id))].filter(
+      (c) => !branch || c.branch === branch,
+    );
+  }, [excel, branch]);
   const list = all.filter(
     (c) =>
       (tier === "Semua" || tierFor(c.baseTotal) === tier) &&
@@ -298,7 +320,9 @@ export function AdminCustomers({ branch }: { branch?: string }) {
                 <td className="p-3">
                   <strong className="block text-[#12285C]">{c.name}</strong>
                   <span className="text-xs text-slate-400">
-                    {c.id} • {c.city} {c.source === "google" && "• daftar via Google"}
+                    {c.id} • {c.city}
+                    {c.source === "google" && " • akun baru via Google"}
+                    {c.googleLinked && ` • terhubung Google (${c.email})`}
                   </span>
                 </td>
                 <td className="p-3 text-slate-500">{c.branch}</td>

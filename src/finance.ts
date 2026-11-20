@@ -1,7 +1,7 @@
 // Data penjualan 2027 (workbook), buku retur, dan perhitungan laporan keuangan.
 // Sumber data ada di public/data/sales-2027.json; ganti loader & store dengan
 // query Supabase (tabel `sales`, `returns`, `opex`) nanti.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { Order } from "./orders";
 
 export type TxStatus = "Diproses" | "Dalam Pengiriman" | "Siap Diambil" | "Selesai" | "Dibatalkan";
@@ -194,18 +194,35 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
+// Buku retur dari website disimpan di localStorage dan dibagikan ke seluruh
+// aplikasi (admin & perhitungan stok di toko) lewat store sederhana.
+const RETURNS_KEY = "hartini.returns";
+let localReturnsState: ReturnEntry[] = readJson(RETURNS_KEY, []);
+const returnListeners = new Set<() => void>();
+function setReturns(update: (c: ReturnEntry[]) => ReturnEntry[]) {
+  localReturnsState = update(localReturnsState);
+  try {
+    localStorage.setItem(RETURNS_KEY, JSON.stringify(localReturnsState));
+  } catch {
+    /* penyimpanan diblokir */
+  }
+  returnListeners.forEach((l) => l());
+}
+export function useLocalReturns() {
+  return useSyncExternalStore(
+    (l) => (returnListeners.add(l), () => returnListeners.delete(l)),
+    () => localReturnsState,
+  );
+}
+
 /** Override status transaksi toko + buku retur (disimpan di localStorage). */
 export function useLedgerStore(excelReturns: ReturnEntry[] = []) {
   const [overrides, setOverrides] = useState<Record<string, TxStatus>>(() =>
     readJson("hartini.txStatus", {}),
   );
-  const [localReturns, setReturns] = useState<ReturnEntry[]>(() => readJson("hartini.returns", []));
+  const localReturns = useLocalReturns();
   const returns = useMemo(() => [...localReturns, ...excelReturns], [localReturns, excelReturns]);
   useEffect(() => localStorage.setItem("hartini.txStatus", JSON.stringify(overrides)), [overrides]);
-  useEffect(
-    () => localStorage.setItem("hartini.returns", JSON.stringify(localReturns)),
-    [localReturns],
-  );
 
   const setTxStatus = useCallback(
     (trx: string, status: TxStatus) => setOverrides((c) => ({ ...c, [trx]: status })),

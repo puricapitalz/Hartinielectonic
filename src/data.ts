@@ -71,6 +71,10 @@ export const params = catalog.params as {
   ppn: number;
   rpPerPoint: number;
   tiers: Tier[];
+  /** bulan: lead time supplier, target stok cover, batas overstock */
+  leadTime: number;
+  coverTarget: number;
+  overstock: number;
   activeDays: number;
   lessActiveDays: number;
 };

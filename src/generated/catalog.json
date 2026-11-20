@@ -4331,6 +4331,9 @@
       { "name": "Gold", "min": 25000000 },
       { "name": "Platinum", "min": 300000000 }
     ],
+    "leadTime": 1,
+    "coverTarget": 2,
+    "overstock": 8,
     "activeDays": 90,
     "lessActiveDays": 180
   },

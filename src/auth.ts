@@ -28,6 +28,10 @@ export type Customer = {
   /** asal akun: database 2027 atau daftar lewat Google di website */
   source: "excel" | "google";
   picture?: string;
+  /** pelanggan lama (database) yang sudah menghubungkan akun Google */
+  googleLinked?: boolean;
+  /** email lama di sheet Pelanggan, sebelum diganti email Google */
+  excelEmail?: string;
 };
 
 const EPOCH = Date.UTC(1899, 11, 30);
@@ -258,3 +262,37 @@ export function membershipOf(c: Customer, orders: Order[], today = new Date()): 
 /** Provinsi alamat pelanggan (akun lama tanpa provinsi memakai provinsi cabang asal). */
 export const provinceOf = (c: Customer) =>
   c.province ?? branches.find((b) => b.branch === c.branch)?.province ?? "DKI Jakarta";
+
+// ---------- pelanggan lama: hubungkan dengan akun Google ----------
+const digits = (phone: string) => {
+  const d = phone.replace(/\D/g, "");
+  return d.startsWith("62") ? "0" + d.slice(2) : d;
+};
+
+/** Cari pelanggan database 2027 berdasarkan No. HP (sheet Pelanggan). */
+export async function findByPhone(phone: string): Promise<Customer | null> {
+  const d = digits(phone);
+  if (d.length < 9) return null;
+  const linked = accounts().find((a) => a.source === "excel" && digits(a.phone) === d);
+  if (linked) return linked;
+  const excel = await loadExcelCustomers().catch(() => []);
+  return excel.find((c) => digits(c.phone) === d) ?? null;
+}
+
+/** Simpan pelanggan lama sebagai akun yang terhubung ke email Google. */
+export function linkGoogle(c: Customer, p: GoogleProfile) {
+  saveAccount({
+    ...c,
+    excelEmail: c.excelEmail ?? c.email,
+    email: p.email,
+    picture: p.picture,
+    googleLinked: true,
+  });
+}
+
+/** "Winda Matulessy" -> "W**** M*******" untuk konfirmasi tanpa membuka data lengkap. */
+export const maskName = (name: string) =>
+  name
+    .split(" ")
+    .map((w) => w.slice(0, 1) + "*".repeat(Math.max(2, w.length - 1)))
+    .join(" ");

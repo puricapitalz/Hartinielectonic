@@ -65,9 +65,13 @@ import {
 } from "./data";
 import AdminExecutive from "./AdminExecutive";
 import { AdminCustomers, AdminRecon, AdminStock } from "./AdminExtra";
+import { RESALEABLE_REASONS, StockContext, useLiveStock, useStockMap } from "./stock";
 import {
   GOOGLE_CLIENT_ID,
   findByEmail,
+  findByPhone,
+  linkGoogle,
+  maskName,
   membershipOf,
   provinceOf,
   nextCustomerId,
@@ -374,9 +378,10 @@ function ProductVisual({ product, className = "" }: { product: Product; classNam
 }
 
 function StockLabel({ product }: { product: Product }) {
-  if (product.stock <= 0) return <span className="font-semibold text-red-600">Stok habis</span>;
-  if (product.stock <= product.stockMin)
-    return <span className="font-semibold text-orange-600">Sisa {product.stock}</span>;
+  const stock = useLiveStock()[product.id]?.stock ?? product.stock;
+  if (stock <= 0) return <span className="font-semibold text-red-600">Stok habis</span>;
+  if (stock <= product.stockMin)
+    return <span className="font-semibold text-orange-600">Sisa {stock}</span>;
   return <span className="font-semibold text-emerald-600">Stok tersedia</span>;
 }
 
@@ -394,6 +399,7 @@ function ProductCard({
   product: Product;
   addToCart: (product: Product) => void;
 }) {
+  const soldOut = (useLiveStock()[product.id]?.stock ?? product.stock) <= 0;
   return (
     <article className="product-card group">
       <div className="relative">
@@ -442,12 +448,8 @@ function ProductCard({
           <CreditCard size={11} /> Cicilan 0%
         </div>
         <div className="mt-4 grid grid-cols-[1fr_44px] gap-2">
-          <Button
-            onClick={() => addToCart(product)}
-            disabled={product.stock <= 0}
-            className="px-2 text-xs"
-          >
-            <ShoppingCart size={15} /> {product.stock <= 0 ? "Habis" : "Tambah"}
+          <Button onClick={() => addToCart(product)} disabled={soldOut} className="px-2 text-xs">
+            <ShoppingCart size={15} /> {soldOut ? "Habis" : "Tambah"}
           </Button>
           <a
             href={`https://wa.me/628111234567?text=${encodeURIComponent(`Halo HARTINI, saya tertarik dengan ${product.name}`)}`}
@@ -845,6 +847,7 @@ function CatalogPage({
   const [inStock, setInStock] = useState(false);
   const [mobileFilter, setMobileFilter] = useState(false);
   const brands = [...new Set(products.map((p) => p.brand))].sort();
+  const live = useLiveStock();
   const filtered = useMemo(() => {
     let result = products.filter(
       (p) =>
@@ -853,7 +856,7 @@ function CatalogPage({
         (category === "Semua" || p.category === category) &&
         (brand === "Semua" || p.brand === brand) &&
         (!discountOnly || p.rating >= 4) &&
-        (!inStock || p.stock > 0),
+        (!inStock || live[p.id].stock > 0),
     );
     if (sort === "Termurah") result = [...result].sort((a, b) => a.price - b.price);
     if (sort === "Termahal") result = [...result].sort((a, b) => b.price - a.price);
@@ -861,7 +864,7 @@ function CatalogPage({
       result = [...result].sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
     if (sort === "Terlaris") result = [...result].sort((a, b) => b.sold - a.sold);
     return result;
-  }, [query, category, brand, sort, discountOnly, inStock]);
+  }, [query, category, brand, sort, discountOnly, inStock, live]);
   const filters = (
     <div className="space-y-6">
       <FilterBlock label="Kategori">
@@ -1015,10 +1018,11 @@ function ProductDetailPage({
   reviews,
 }: {
   id: string;
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, qty?: number) => void;
   reviews: Review[];
 }) {
   const product = products.find((item) => item.id === id) || products[0];
+  const live = useLiveStock()[product.id];
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState("Spesifikasi");
   const related = products
@@ -1092,8 +1096,8 @@ function ProductDetailPage({
                 [ShieldCheck, `Garansi resmi ${product.warranty} bulan`],
                 [
                   PackageCheck,
-                  product.stock > 0
-                    ? `Stok gudang ${product.stock.toLocaleString("id-ID")} unit`
+                  live.stock > 0
+                    ? `Stok gudang ${live.stock.toLocaleString("id-ID")} unit`
                     : "Stok habis, sedang dipesan ke supplier",
                 ],
                 [
@@ -1130,13 +1134,12 @@ function ProductDetailPage({
               </div>
               <Button
                 onClick={() => {
-                  for (let i = 0; i < qty; i++) addToCart(product);
+                  addToCart(product, qty);
                 }}
-                disabled={product.stock <= 0}
+                disabled={live.stock <= 0}
                 className="flex-1"
               >
-                <ShoppingCart size={18} />{" "}
-                {product.stock <= 0 ? "Stok habis" : "Tambah ke Keranjang"}
+                <ShoppingCart size={18} /> {live.stock <= 0 ? "Stok habis" : "Tambah ke Keranjang"}
               </Button>
             </div>
             <a
@@ -1190,13 +1193,13 @@ function ProductDetailPage({
               <div className="grid gap-4 sm:grid-cols-3">
                 <Spec
                   label="Stok gudang saat ini"
-                  value={`${product.stock.toLocaleString("id-ID")} unit`}
+                  value={`${live.stock.toLocaleString("id-ID")} unit`}
                 />
                 <Spec
                   label="Stok minimum"
                   value={`${product.stockMin.toLocaleString("id-ID")} unit`}
                 />
-                <Spec label="Status" value={product.stockStatus} />
+                <Spec label="Status" value={live.status} />
                 <p className="text-xs text-slate-500 sm:col-span-3">
                   Stok dikelola terpusat. Barang dikirim dari gudang ke cabang pilihan Anda, atau
                   langsung ke alamat Anda.
@@ -1358,6 +1361,7 @@ function CartPage({
   remove: (id: string) => void;
 }) {
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
+  const live = useLiveStock();
   return (
     <main>
       <PageHero
@@ -1402,7 +1406,12 @@ function CartPage({
                             <Minus size={14} />
                           </button>
                           <span className="w-7 text-center text-xs font-bold">{qty}</span>
-                          <button onClick={() => changeQty(product.id, qty + 1)} className="p-2">
+                          <button
+                            onClick={() => changeQty(product.id, qty + 1)}
+                            disabled={qty >= (live[product.id]?.stock ?? 0)}
+                            className="p-2 disabled:opacity-30"
+                            aria-label="Tambah jumlah"
+                          >
                             <Plus size={14} />
                           </button>
                         </div>
@@ -2654,17 +2663,239 @@ function GoogleSignIn({ onProfile }: { onProfile: (p: GoogleProfile) => void }) 
   );
 }
 
+function LinkExisting({
+  profile,
+  onBack,
+  onDone,
+}: {
+  profile: GoogleProfile;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const [phone, setPhone] = useState("");
+  const [match, setMatch] = useState<Customer | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="grid gap-3">
+      <h2 className="font-heading text-lg font-bold text-[#12285C]">Hubungkan pelanggan lama</h2>
+      <p className="text-sm text-slate-500">
+        Masukkan No. HP yang Anda berikan saat belanja di toko. Riwayat belanja, tingkat member, dan
+        poin Anda akan tersambung ke <b>{profile.email}</b>.
+      </p>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setMatch(await findByPhone(phone));
+          setBusy(false);
+        }}
+        className="flex flex-wrap gap-2"
+      >
+        <input
+          id="link-phone"
+          value={phone}
+          onChange={(e) => {
+            setPhone(e.target.value);
+            setMatch(undefined);
+          }}
+          className="field flex-1"
+          placeholder="No. HP, mis. 0812xxxxxxx"
+          inputMode="tel"
+          required
+          aria-label="No. HP"
+        />
+        <Button type="submit" variant="outline" disabled={busy}>
+          {busy ? "Mencari…" : "Cari"}
+        </Button>
+      </form>
+      {match === null && (
+        <p role="alert" className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+          No. HP tidak ditemukan di data pelanggan. Periksa nomornya, atau daftar sebagai pelanggan
+          baru.
+        </p>
+      )}
+      {match && (
+        <div className="rounded-xl border border-[#12285C] bg-[#F4F6FA] p-4 text-sm">
+          <p>
+            Ditemukan: <b>{maskName(match.name)}</b> • {match.id} • cabang {match.branch}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Tingkat {tierFor(match.baseTotal)} • {match.baseTrx} transaksi
+            {match.googleLinked && ` • sudah terhubung ke ${match.email}`}
+          </p>
+          <p className="mt-2 text-[11px] text-slate-500">
+            Di sistem sungguhan, langkah ini wajib diverifikasi dengan kode OTP ke No. HP tersebut.
+          </p>
+          <Button
+            className="mt-3"
+            onClick={() => {
+              linkGoogle(match, profile);
+              onDone();
+            }}
+          >
+            Ya, ini saya. Hubungkan
+          </Button>
+        </div>
+      )}
+      <Button variant="ghost" onClick={onBack}>
+        Kembali
+      </Button>
+    </div>
+  );
+}
+
+/** Tiruan jendela "Pilih akun" Google untuk demo, memakai email di sheet Pelanggan. */
+function GoogleChooser({
+  customers,
+  samples,
+  onPick,
+  onClose,
+}: {
+  customers: Customer[];
+  samples: Customer[];
+  onPick: (p: GoogleProfile) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [other, setOther] = useState(false);
+  const needle = q.trim().toLowerCase();
+  const list = needle
+    ? customers
+        .filter((c) => `${c.name} ${c.email} ${c.id}`.toLowerCase().includes(needle))
+        .slice(0, 8)
+    : samples;
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pilih akun Google (simulasi)"
+      className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-slate-100 p-5">
+          <p className="text-xs font-bold text-[#4285F4]">G · Simulasi Login dengan Google</p>
+          <h2 className="mt-2 font-heading text-xl font-bold text-slate-800">Pilih akun</h2>
+          <p className="text-sm text-slate-500">untuk melanjutkan ke Hartini Electronic</p>
+        </div>
+        {!other ? (
+          <div className="p-3">
+            <input
+              id="chooser-q"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="field mb-2"
+              placeholder="Cari nama, email, atau ID pelanggan"
+              aria-label="Cari akun"
+              autoFocus
+            />
+            {!needle && (
+              <p className="px-2 pb-1 text-[11px] text-slate-400">
+                Contoh satu pelanggan per tingkat member
+              </p>
+            )}
+            <ul className="max-h-80 overflow-y-auto">
+              {list.map((c) => (
+                <li key={c.id}>
+                  <button
+                    onClick={() => onPick({ email: c.email, name: c.name, sub: `sim-${c.id}` })}
+                    className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-slate-50"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#12285C] text-sm font-bold text-white">
+                      {c.name.slice(0, 1)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong className="block truncate text-sm text-slate-800">{c.name}</strong>
+                      <span className="block truncate text-xs text-slate-500">{c.email}</span>
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${TIER_STYLE[tierFor(c.baseTotal)]}`}
+                    >
+                      {tierFor(c.baseTotal)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {needle && list.length === 0 && (
+                <li className="p-3 text-sm text-slate-500">Tidak ada pelanggan yang cocok.</li>
+              )}
+            </ul>
+            <button
+              onClick={() => setOther(true)}
+              className="mt-1 w-full rounded-xl p-3 text-left text-sm font-semibold text-[#4285F4] hover:bg-slate-50"
+            >
+              Gunakan akun lain
+            </button>
+          </div>
+        ) : (
+          <form
+            className="grid gap-3 p-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              onPick({
+                email: String(f.get("email")).trim(),
+                name: String(f.get("name")).trim(),
+                sub: `sim-${Date.now()}`,
+              });
+            }}
+          >
+            <input
+              id="chooser-email"
+              name="email"
+              type="email"
+              required
+              className="field"
+              placeholder="Email Google, mis. nama@gmail.com"
+              aria-label="Email"
+            />
+            <input
+              id="chooser-name"
+              name="name"
+              required
+              className="field"
+              placeholder="Nama di akun Google"
+              aria-label="Nama"
+            />
+            <Button type="submit">Lanjutkan</Button>
+            <Button variant="ghost" onClick={() => setOther(false)}>
+              Kembali
+            </Button>
+          </form>
+        )}
+        <p className="border-t border-slate-100 p-3 text-center text-[11px] text-slate-400">
+          Simulasi untuk demo. Login Google asli ada di sebelah kiri.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function AccountPage({ orders }: { orders: Order[] }) {
   const me = useCustomer();
   const excel = useExcelCustomers();
   const [pending, setPending] = useState<GoogleProfile | null>(null);
+  const [mode, setMode] = useState<"ask" | "new" | "link">("ask");
   const [checking, setChecking] = useState(false);
+  const [chooser, setChooser] = useState(false);
   const onProfile = async (p: GoogleProfile) => {
     setChecking(true);
     const found = await findByEmail(p.email);
     setChecking(false);
-    if (found) signInAs({ ...found, picture: p.picture });
-    else setPending(p);
+    // email Google cocok dengan pelanggan lama: langsung masuk & tandai terhubung
+    if (found)
+      saveAccount({
+        ...found,
+        picture: p.picture ?? found.picture,
+        googleLinked: found.source === "excel" ? true : found.googleLinked,
+      });
+    else {
+      setMode("ask");
+      setPending(p);
+    }
   };
   // satu contoh pelanggan aktif perorangan per tier, dari sheet Pelanggan
   const samples = useMemo(() => {
@@ -2709,13 +2940,21 @@ function AccountPage({ orders }: { orders: Order[] }) {
               <div className="min-w-0">
                 <h2 className="font-heading text-xl font-bold text-[#12285C]">{me.name}</h2>
                 <p className="text-sm text-slate-500">
-                  {me.id} • {me.source === "google" ? "Akun Google" : "Pelanggan database 2027"}
+                  {me.id} •{" "}
+                  {me.source === "google"
+                    ? "Akun Google baru"
+                    : me.googleLinked
+                      ? "Pelanggan lama, terhubung Google"
+                      : "Pelanggan database 2027"}
                 </p>
               </div>
             </div>
             <dl className="mt-6 grid gap-4 sm:grid-cols-2">
               {[
                 ["Email", me.email],
+                ...(me.excelEmail && me.excelEmail !== me.email
+                  ? [["Email lama (database)", me.excelEmail]]
+                  : []),
                 ["No. HP", me.phone],
                 ["Kota", `${me.city}, ${provinceOf(me)}`],
                 ["Cabang asal", me.branch],
@@ -2809,6 +3048,29 @@ function AccountPage({ orders }: { orders: Order[] }) {
               <GoogleSignIn onProfile={onProfile} />
               {checking && <p className="mt-3 text-xs text-slate-500">Memeriksa akun…</p>}
             </>
+          ) : mode === "ask" ? (
+            <div className="grid gap-3">
+              <h2 className="font-heading text-lg font-bold text-[#12285C]">
+                Email belum terdaftar
+              </h2>
+              <p className="text-sm text-slate-500">
+                <b>{pending.email}</b> belum terhubung ke data pelanggan HARTINI. Apakah Anda pernah
+                belanja di toko kami sebelumnya?
+              </p>
+              <Button onClick={() => setMode("link")}>Ya, saya pelanggan lama</Button>
+              <Button variant="outline" onClick={() => setMode("new")}>
+                Belum, daftar sebagai pelanggan baru
+              </Button>
+              <Button variant="ghost" onClick={() => setPending(null)}>
+                Batal
+              </Button>
+            </div>
+          ) : mode === "link" ? (
+            <LinkExisting
+              profile={pending}
+              onBack={() => setMode("ask")}
+              onDone={() => setPending(null)}
+            />
           ) : (
             <form
               onSubmit={(e) => {
@@ -2914,38 +3176,35 @@ function AccountPage({ orders }: { orders: Order[] }) {
         </div>
         <div className="rounded-2xl bg-[#F4F6FA] p-6">
           <h2 className="font-heading text-lg font-bold text-[#12285C]">
-            Coba sebagai pelanggan contoh
+            Simulasi login Google pelanggan lama
           </h2>
           <p className="mb-5 mt-2 text-sm text-slate-500">
-            Untuk demo: masuk sebagai pelanggan dari database 2027 (sheet Pelanggan), satu dari tiap
-            tingkat member.
+            Untuk demo tanpa akun Google sungguhan. Pilih salah satu dari 3.808 pelanggan di sheet
+            Pelanggan, seolah-olah mereka masuk memakai akun Google dengan email yang tercatat.
+            Alurnya sama persis dengan login Google asli.
           </p>
-          {!excel ? (
-            <div className="skeleton h-40 rounded-xl" />
-          ) : (
-            <div className="grid gap-2">
-              {samples.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => signInAs(c)}
-                  className="flex items-center justify-between gap-3 rounded-xl bg-white p-4 text-left hover:ring-2 hover:ring-[#12285C]/20"
-                >
-                  <span className="min-w-0">
-                    <strong className="block truncate text-sm text-[#12285C]">{c.name}</strong>
-                    <span className="text-xs text-slate-500">
-                      {c.id} • {c.branch} • belanja {formatPrice(c.baseTotal)}
-                    </span>
-                  </span>
-                  <span
-                    className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${TIER_STYLE[tierFor(c.baseTotal)]}`}
-                  >
-                    {tierFor(c.baseTotal)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+          <Button onClick={() => setChooser(true)} className="w-full" disabled={!excel}>
+            <span className="grid size-5 place-items-center rounded-full bg-white text-[11px] font-black text-[#4285F4]">
+              G
+            </span>
+            Pilih akun (simulasi Google)
+          </Button>
+          <p className="mt-4 text-[11px] leading-5 text-slate-500">
+            Ingin mencoba pelanggan lama yang memakai Gmail baru? Di jendela simulasi pilih “Gunakan
+            akun lain”, isi email baru, lalu hubungkan memakai No. HP pelanggan dari Excel.
+          </p>
         </div>
+        {chooser && excel && (
+          <GoogleChooser
+            customers={excel}
+            samples={samples}
+            onClose={() => setChooser(false)}
+            onPick={(p) => {
+              setChooser(false);
+              onProfile(p);
+            }}
+          />
+        )}
       </section>
     </main>
   );
@@ -3657,7 +3916,10 @@ function ReturnDialog({
         </label>
         <p className="mt-4 rounded-lg bg-[#F4F6FA] p-3 text-xs text-slate-600">
           Pengembalian dana <strong>{formatPrice(Math.round(unit * qty))}</strong> akan mengurangi
-          omzet cabang dan laporan keuangan.
+          omzet cabang dan laporan keuangan.{" "}
+          {RESALEABLE_REASONS.includes(reason)
+            ? `Barang layak jual, ${qty} unit kembali ke stok.`
+            : "Barang rusak, tidak kembali ke stok jual."}
         </p>
         <div className="mt-5 flex gap-2">
           <Button type="submit">Proses Retur</Button>
@@ -4857,6 +5119,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>(() => loadOrders());
   const { reviews, addReview, updateReview } = useReviews();
   const me = useCustomer();
+  const stockMap = useStockMap(orders);
   useEffect(() => saveOrders(orders), [orders]);
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 650);
@@ -4877,18 +5140,34 @@ export default function App() {
     setToast(message);
     window.setTimeout(() => setToast(""), 3200);
   };
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, add = 1) => {
+    const inCart = cart.find((item) => item.product.id === product.id)?.qty ?? 0;
+    const available = stockMap[product.id]?.stock ?? 0;
+    if (inCart + add > available) {
+      notify(
+        available <= 0
+          ? `${product.name} sedang habis.`
+          : `Stok ${product.name} tinggal ${available} unit (di keranjang ${inCart}).`,
+      );
+      return;
+    }
     setCart((current) => {
       const existing = current.find((item) => item.product.id === product.id);
       return existing
         ? current.map((item) =>
-            item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item,
+            item.product.id === product.id ? { ...item, qty: item.qty + add } : item,
           )
-        : [...current, { product, qty: 1 }];
+        : [...current, { product, qty: add }];
     });
     notify(`${product.name} ditambahkan ke keranjang.`);
   };
   const placeOrder = (data: CheckoutData) => {
+    const short = cart.find(({ product, qty }) => qty > (stockMap[product.id]?.stock ?? 0));
+    if (short) {
+      notify(`Stok ${short.product.name} tidak cukup. Kurangi jumlahnya di keranjang.`);
+      go("cart");
+      return;
+    }
     const order: Order = {
       id: newOrderId(),
       createdAt: new Date().toISOString(),
@@ -5029,30 +5308,32 @@ export default function App() {
     ),
   };
   return (
-    <div className="min-h-screen bg-white text-slate-700 transition-colors">
-      <Header cartCount={cartCount} />
-      {loading ? <SkeletonPage /> : pages[page]}
-      {!loading && <Footer />}
-      <a
-        href="https://wa.me/628111234567?text=Halo%20HARTINI%20ELECTRONIC"
-        target="_blank"
-        rel="noreferrer"
-        className="fixed bottom-5 right-5 z-50 grid size-14 place-items-center rounded-full bg-[#12A564] text-white shadow-[0_10px_30px_rgba(18,165,100,.35)] transition hover:scale-105"
-        aria-label="Hubungi via WhatsApp"
-      >
-        <MessageCircle size={26} />
-      </a>
-      {toast && (
-        <div
-          role="status"
-          className="fixed bottom-24 left-1/2 z-[80] flex w-[calc(100%-32px)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl bg-slate-950 px-5 py-4 text-sm font-semibold text-white shadow-2xl"
+    <StockContext.Provider value={stockMap}>
+      <div className="min-h-screen bg-white text-slate-700 transition-colors">
+        <Header cartCount={cartCount} />
+        {loading ? <SkeletonPage /> : pages[page]}
+        {!loading && <Footer />}
+        <a
+          href="https://wa.me/628111234567?text=Halo%20HARTINI%20ELECTRONIC"
+          target="_blank"
+          rel="noreferrer"
+          className="fixed bottom-5 right-5 z-50 grid size-14 place-items-center rounded-full bg-[#12A564] text-white shadow-[0_10px_30px_rgba(18,165,100,.35)] transition hover:scale-105"
+          aria-label="Hubungi via WhatsApp"
         >
-          <span className="grid size-6 place-items-center rounded-full bg-emerald-500">
-            <Check size={14} />
-          </span>
-          {toast}
-        </div>
-      )}
-    </div>
+          <MessageCircle size={26} />
+        </a>
+        {toast && (
+          <div
+            role="status"
+            className="fixed bottom-24 left-1/2 z-[80] flex w-[calc(100%-32px)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl bg-slate-950 px-5 py-4 text-sm font-semibold text-white shadow-2xl"
+          >
+            <span className="grid size-6 place-items-center rounded-full bg-emerald-500">
+              <Check size={14} />
+            </span>
+            {toast}
+          </div>
+        )}
+      </div>
+    </StockContext.Provider>
   );
 }
