@@ -2391,7 +2391,6 @@ function Footer() {
           title="Bantuan"
           items={[
             ["Pesanan Saya", "orders"],
-            ["Admin", "admin"],
             ["FAQ", "faq"],
             ["Garansi & Retur", "faq"],
             ["Pengiriman", "faq"],
@@ -2861,8 +2860,17 @@ function GoogleChooser({
   );
 }
 
-function AccountPage({ orders }: { orders: Order[] }) {
+function AccountPage({
+  orders,
+  initialMode = "customer",
+  onAdminLogin = () => go("admin"),
+}: {
+  orders: Order[];
+  initialMode?: "customer" | "admin";
+  onAdminLogin?: (s: AdminSession) => void;
+}) {
   const me = useCustomer();
+  const [who, setWho] = useState<"customer" | "admin">(initialMode);
   const excel = useExcelCustomers();
   const [pending, setPending] = useState<GoogleProfile | null>(null);
   const [mode, setMode] = useState<"ask" | "new" | "link">("ask");
@@ -2900,7 +2908,7 @@ function AccountPage({ orders }: { orders: Order[] }) {
       .filter((c): c is Customer => !!c);
   }, [excel]);
 
-  if (me) {
+  if (me && who === "customer") {
     const m = membershipOf(me, orders);
     const pct = m.next ? Math.min(1, m.total / m.next.min) : 1;
     return (
@@ -2963,6 +2971,9 @@ function AccountPage({ orders }: { orders: Order[] }) {
               <Button variant="outline" onClick={signOut}>
                 Keluar
               </Button>
+              <Button variant="ghost" onClick={() => setWho("admin")}>
+                Masuk sebagai Admin / Staff
+              </Button>
             </div>
           </div>
           <aside className="h-fit rounded-2xl border border-slate-200 p-6">
@@ -3020,10 +3031,43 @@ function AccountPage({ orders }: { orders: Order[] }) {
   return (
     <main>
       <PageHero
-        title="Masuk atau Daftar"
-        text="Gunakan akun Google Anda. Pelanggan baru otomatis terdaftar sebagai member Bronze."
+        title="Masuk"
+        text={
+          who === "customer"
+            ? "Gunakan akun Google Anda. Pelanggan baru otomatis terdaftar sebagai member Bronze."
+            : "Khusus Direktur, Kepala Cabang, dan Staff HARTINI ELECTRONIC."
+        }
       />
-      <section className="container section grid gap-6 lg:grid-cols-2">
+      <div className="container pt-8">
+        <div
+          role="tablist"
+          aria-label="Masuk sebagai"
+          className="inline-flex rounded-2xl bg-[#F4F6FA] p-1.5"
+        >
+          {(
+            [
+              ["customer", "Pelanggan"],
+              ["admin", "Admin / Staff"],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              role="tab"
+              aria-selected={who === k}
+              onClick={() => setWho(k)}
+              className={`rounded-xl px-5 py-2.5 text-sm font-bold ${who === k ? "bg-[#12285C] text-white" : "text-slate-600"}`}
+            >
+              Masuk sebagai {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {who === "admin" ? (
+        <section className="container section pt-6">
+          <AdminLoginForm onSuccess={onAdminLogin} />
+        </section>
+      ) : (
+      <section className="container section grid gap-6 pt-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 p-6">
           {!pending ? (
             <>
@@ -3193,6 +3237,7 @@ function AccountPage({ orders }: { orders: Order[] }) {
           />
         )}
       </section>
+      )}
     </main>
   );
 }
@@ -4885,6 +4930,61 @@ function readAdminSession(): AdminSession | null {
   }
 }
 
+function AdminLoginForm({ onSuccess }: { onSuccess: (s: AdminSession) => void }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(false);
+  const current = readAdminSession();
+  if (current)
+    return (
+      <div className="max-w-sm rounded-2xl border border-slate-200 p-6">
+        <h2 className="font-heading text-lg font-bold text-[#12285C]">Anda sudah masuk</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Sebagai {ROLE_LABEL[current.role]}
+          {current.branch ? ` cabang ${current.branch}` : ""}.
+        </p>
+        <Button className="mt-4 w-full" onClick={() => onSuccess(current)}>
+          Buka Dasbor Admin
+        </Button>
+      </div>
+    );
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const s = resolveAdmin(pin);
+        if (!s) return setError(true);
+        sessionStorage.setItem("hartini.admin", JSON.stringify(s));
+        onSuccess(s);
+      }}
+      className="max-w-sm rounded-2xl border border-slate-200 p-6"
+    >
+      <h2 className="font-heading text-lg font-bold text-[#12285C]">Masuk Admin</h2>
+      <p className="mt-2 text-sm text-slate-500">Masukkan kode akses dari kantor pusat.</p>
+      <input
+        id="admin-pin"
+        type="password"
+        value={pin}
+        onChange={(e) => {
+          setPin(e.target.value);
+          setError(false);
+        }}
+        className="field mt-4"
+        placeholder="Kode akses"
+        aria-label="Kode akses"
+        autoFocus
+      />
+      {error && (
+        <p role="alert" className="mt-2 text-xs font-bold text-red-500">
+          Kode akses salah. Periksa penulisan nama cabang.
+        </p>
+      )}
+      <Button type="submit" className="mt-4 w-full">
+        Masuk
+      </Button>
+    </form>
+  );
+}
+
 function AdminPage({
   orders: allOrders,
   reviews,
@@ -4899,8 +4999,6 @@ function AdminPage({
   addDemo: () => void;
 }) {
   const [session, setSession] = useState<AdminSession | null>(readAdminSession);
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
   const [tab, setTab] = useState("");
   const [notice, setNotice] = useState("");
   const { db: fullDb, error: dbError } = useSalesDb();
@@ -4926,48 +5024,14 @@ function AdminPage({
   };
   if (!session)
     return (
-      <main>
-        <PageHero
-          title="Dasbor Admin"
-          text="Khusus Direktur, Kepala Cabang, dan Staff HARTINI ELECTRONIC."
-        />
-        <section className="section">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const s = resolveAdmin(pin);
-              if (!s) return setError(true);
-              sessionStorage.setItem("hartini.admin", JSON.stringify(s));
-              setSession(s);
-              setTab(ROLE_TABS[s.role][0]);
-            }}
-            className="container max-w-sm rounded-2xl border border-slate-200 p-6"
-          >
-            <h2 className="font-heading text-lg font-bold text-[#12285C]">Masuk Admin</h2>
-            <input
-              id="admin-pin"
-              type="password"
-              value={pin}
-              onChange={(e) => {
-                setPin(e.target.value);
-                setError(false);
-              }}
-              className="field mt-4"
-              placeholder="Kode akses"
-              aria-label="Kode akses"
-              autoFocus
-            />
-            {error && (
-              <p role="alert" className="mt-2 text-xs font-bold text-red-500">
-                Kode akses salah. Periksa penulisan nama cabang.
-              </p>
-            )}
-            <Button type="submit" className="mt-4 w-full">
-              Masuk
-            </Button>
-          </form>
-        </section>
-      </main>
+      <AccountPage
+        orders={allOrders}
+        initialMode="admin"
+        onAdminLogin={(s) => {
+          setSession(s);
+          setTab(ROLE_TABS[s.role][0]);
+        }}
+      />
     );
   const tabs = ROLE_TABS[session.role];
   const active = tabs.includes(tab) ? tab : tabs[0];
@@ -5012,7 +5076,6 @@ function AdminPage({
                 onClick={() => {
                   sessionStorage.removeItem("hartini.admin");
                   setSession(null);
-                  setPin("");
                 }}
               >
                 Keluar
@@ -5255,7 +5318,13 @@ export default function App() {
         text="Masuk dulu supaya pesanan tercatat di akun member Anda."
       />
     ),
-    account: <AccountPage orders={orders} />,
+    account: (
+      <AccountPage
+        key={pageData}
+        orders={orders}
+        initialMode={pageData === "admin" ? "admin" : "customer"}
+      />
+    ),
     branches: <BranchesPage />,
     member: <MemberPage />,
     promo: <PromoPage />,
