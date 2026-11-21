@@ -209,3 +209,167 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =====================================================================
+   MODE GELAP
+   Aktif saat <html class="dark">. Palet Tailwind dipetakan ulang lewat
+   variabel, lalu warna merek (kode hex) diberi pasangan gelapnya di sini,
+   sehingga semua halaman ikut berubah tanpa kelas dark: di tiap komponen.
+   ===================================================================== */
+:root {
+  --chip-good-bg: #e7f6e7;
+  --chip-good-fg: #0a6e0a;
+  --chip-warn-bg: #fff3d1;
+  --chip-warn-fg: #7a5200;
+  --chip-bad-bg: #fbe7e7;
+  --chip-bad-fg: #a32727;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-slate-50: #111a2b;
+  --color-slate-100: #1a2437;
+  --color-slate-200: #263247;
+  --color-slate-300: #334158;
+  --color-slate-400: #8492a9;
+  --color-slate-500: #98a5bb;
+  --color-slate-600: #b4bfd1;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-blue-50: #13233f;
+  --color-blue-100: #1a2f55;
+  --color-blue-700: #93b4f5;
+  --color-emerald-50: #0f2a22;
+  --color-emerald-200: #1c4a3b;
+  --color-emerald-300: #2a6b54;
+  --color-emerald-600: #4cc79a;
+  --color-emerald-700: #6fd6ae;
+  --color-amber-50: #2e2410;
+  --color-amber-100: #3a2d12;
+  --color-amber-700: #f5c46b;
+  --color-amber-800: #f7cf80;
+  --color-orange-50: #2e1d10;
+  --color-orange-600: #ff9a4d;
+  --color-orange-700: #ffab6b;
+  --color-red-50: #2e1414;
+  --color-red-200: #5a2323;
+  --color-red-500: #f87171;
+  --color-red-600: #f87171;
+  --color-red-700: #fca5a5;
+  --color-yellow-100: #3a3210;
+  --color-yellow-700: #f2d36b;
+  --chip-good-bg: #12301a;
+  --chip-good-fg: #7fe08f;
+  --chip-warn-bg: #3a2d10;
+  --chip-warn-fg: #f7cf80;
+  --chip-bad-bg: #3a1717;
+  --chip-bad-fg: #f5a3a3;
+}
+
+.dark body {
+  background: #0b1220;
+  color: #cbd5e1;
+}
+
+/* permukaan */
+.dark .bg-white,
+.dark .bg-white\/90,
+.dark .bg-white\/75 {
+  background-color: #0f1729;
+}
+.dark .bg-white\/95 {
+  background-color: rgb(15 23 41 / 0.95);
+}
+.dark .bg-\[\#F4F6FA\] {
+  background-color: #18223a;
+}
+.dark .bg-\[\#F8F9FB\] {
+  background-color: #111a2b;
+}
+.dark .bg-\[\#12285C\] {
+  background-color: #1f3c80;
+}
+.dark .bg-\[\#F3E3D3\] {
+  background-color: #3a2a1a;
+}
+.dark .from-\[\#D9E8F6\]\/80 {
+  --tw-gradient-from: rgb(30 45 80 / 0.8);
+}
+.dark .to-\[\#EDF4FA\]\/70 {
+  --tw-gradient-to: rgb(18 28 50 / 0.7);
+}
+/* logo tetap di atas latar putih agar terbaca */
+.dark .logo-chip {
+  background-color: #fff;
+}
+
+/* teks */
+.dark .text-\[\#12285C\],
+.dark .hover\:text-\[\#12285C\]:hover {
+  color: #c9d7f7;
+}
+.dark .text-\[\#0F1B33\] {
+  color: #e6ecf7;
+}
+.dark .text-\[\#a32727\] {
+  color: #f19a9a;
+}
+.dark .text-\[\#8A4B14\] {
+  color: #e7b98a;
+}
+.dark .border-\[\#12285C\],
+.dark .hover\:border-\[\#12285C\]:hover {
+  border-color: #4a6bb5;
+}
+
+/* komponen kustom */
+.dark .icon-button {
+  color: #c9d7f7;
+}
+.dark .icon-button:hover {
+  background: #1e293b;
+}
+.dark .product-card,
+.dark .category-card {
+  border-color: #1e293b;
+  background: #0f1729;
+}
+.dark .field {
+  border-color: #334158;
+  background: #0f1729;
+  color: #e2e8f0;
+}
+.dark .filter-check {
+  color: #cbd5e1;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #172033 25%, #202b40 50%, #172033 75%);
+  background-size: 200% 100%;
+}
+
+/* grafik dasbor (SVG) */
+.dark svg text[fill="#0F1B33"] {
+  fill: #e6ecf7;
+}
+.dark svg line[stroke="#0F1B33"] {
+  stroke: #e6ecf7;
+}
+.dark svg text[fill="#64748b"] {
+  fill: #98a5bb;
+}
+.dark svg text[fill="#a32727"] {
+  fill: #f19a9a;
+}
+.dark svg line[stroke="#e5e9f0"] {
+  stroke: #26324b;
+}
+.dark svg path[stroke="#e8edf3"] {
+  stroke: #26324b;
+}
+.dark svg circle[stroke="#fff"] {
+  stroke: #0f1729;
+}
+/* elemen putih di atas banner biru tetap putih */
+.dark .keep-white {
+  background-color: #fff;
+}

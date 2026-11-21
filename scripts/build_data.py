@@ -12,6 +12,7 @@ Menghasilkan:
 
 Ulasan TIDAK ada di Excel. Script membuatnya secara deterministik:
   - transaksi yang pengirimannya Selesai  -> bintang 3-5
+  - ~12% transaksi yang dibawa langsung dari toko -> bintang 3-5
   - transaksi yang diretur (klaim Refund / Retur) -> bintang 1-2
 """
 
@@ -206,6 +207,26 @@ def main(xlsx):
         if rating == 3 and h(t_no + "rep") < 0.6:
             rv["adminReply"] = replies["mid"]
         reviews.append(rv)
+    # Pembeli yang membawa barang langsung dari toko: sekitar 12% memberi ulasan 3-5 bintang,
+    # supaya jumlah ulasan sebanding dengan volume penjualan (bukan hanya barang yang dikirim).
+    walkin = {
+        5: ["Dilayani dengan ramah di toko, penjelasan produknya jelas.", "Barang original dan langsung dicoba di kasir. Puas!",
+            "Harga sesuai, proses pembayaran cepat. Recommended.", "Sudah dipakai beberapa minggu, awet dan tidak ada masalah."],
+        4: ["Produk bagus, antrean kasir agak panjang.", "Sesuai kebutuhan, staf cukup membantu.", "Kualitas oke untuk harganya."],
+        3: ["Cukup, pilihan warna di toko terbatas.", "Fungsi normal, tapi stok yang saya mau sempat kosong."],
+    }
+    for _, t in S.iterrows():
+        t_no = t["Nomor Transaksi"]
+        if t_no in ship or t_no in returned_trx or h(t_no + "walk") >= 0.12:
+            continue
+        roll = h(t_no + "rate")
+        rating = 5 if roll < 0.55 else 4 if roll < 0.9 else 3
+        when = min(pd.Timestamp(t["Tanggal"]).to_pydatetime() + timedelta(days=2 + int(h(t_no + "d") * 8)), REF)
+        reviews.append({
+            "id": f"RVW-{t_no}", "orderId": t_no, "productId": t["SKU"], "customerId": t["ID Pelanggan"],
+            "customer": cust_name.get(t["ID Pelanggan"], "Pelanggan"), "rating": rating,
+            "comment": pick(walkin[rating], t_no), "createdAt": when.strftime("%Y-%m-%dT11:00:00"), "branch": t["Cabang"], "source": "excel",
+        })
     for r in returns:
         rating = 1 if h(r["id"] + "rate") < 0.5 else 2
         when = datetime.strptime(r["date"], "%Y-%m-%d")

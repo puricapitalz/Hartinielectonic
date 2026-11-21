@@ -17,10 +17,8 @@ import {
   CircleHelp,
   CreditCard,
   Drill,
-  Globe2,
   Heart,
   Headphones,
-  Share2,
   Laptop,
   MapPin,
   Menu,
@@ -43,10 +41,11 @@ import {
   Truck,
   Tv,
   UserRound,
+  Moon,
+  Sun,
   WashingMachine,
   Wrench,
   X,
-  Play,
   Zap,
 } from "lucide-react";
 import {
@@ -66,6 +65,7 @@ import {
 import AdminExecutive from "./AdminExecutive";
 import { AdminCustomers, AdminRecon, AdminStock } from "./AdminExtra";
 import { RESALEABLE_REASONS, StockContext, useLiveStock, useStockMap } from "./stock";
+import { setDark, useDark } from "./theme";
 import {
   GOOGLE_CLIENT_ID,
   findByEmail,
@@ -185,7 +185,7 @@ function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
     <button
       onClick={() => go("home")}
-      className={`group flex items-center rounded-xl bg-white transition-transform hover:scale-[1.02] ${
+      className={`logo-chip group flex items-center rounded-xl bg-white transition-transform hover:scale-[1.02] ${
         inverse ? "px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,.14)]" : "px-2 py-1"
       }`}
       aria-label="Ke beranda HARTINI ELECTRONIC"
@@ -241,22 +241,6 @@ function Header({ cartCount }: { cartCount: number }) {
   const [mobile, setMobile] = useState(false);
   return (
     <>
-      <div className="hidden bg-[#0B1C42] py-2 text-xs text-white/75 md:block">
-        <div className="container flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Store size={13} /> 20 cabang di 15 provinsi Indonesia
-          </span>
-          <span className="flex items-center gap-5">
-            <span>Gratis konsultasi produk</span>
-            <span className="text-white/30">|</span>
-            <span>Garansi resmi</span>
-            <span className="text-white/30">|</span>
-            <span className="flex items-center gap-1.5">
-              <Phone size={12} /> 0800-1-HARTINI
-            </span>
-          </span>
-        </div>
-      </div>
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
         <div className="container flex h-[72px] items-center justify-between gap-5">
           <Logo />
@@ -272,6 +256,7 @@ function Header({ cartCount }: { cartCount: number }) {
             ))}
           </nav>
           <div className="flex items-center gap-1">
+            <ThemeButton />
             <AccountButton />
             <button onClick={() => go("orders")} className="icon-button" aria-label="Pesanan saya">
               <ClipboardList size={20} />
@@ -452,7 +437,7 @@ function ProductCard({
             <ShoppingCart size={15} /> {soldOut ? "Habis" : "Tambah"}
           </Button>
           <a
-            href={`https://wa.me/628111234567?text=${encodeURIComponent(`Halo HARTINI, saya tertarik dengan ${product.name}`)}`}
+            href={`https://wa.me/62315991276?text=${encodeURIComponent(`Halo HARTINI, saya tertarik dengan ${product.name}`)}`}
             target="_blank"
             rel="noreferrer"
             className="grid min-h-11 place-items-center rounded-xl border border-emerald-200 text-emerald-600 transition hover:bg-emerald-50"
@@ -533,7 +518,7 @@ function HomePage({ addToCart }: { addToCart: (product: Product) => void }) {
                 <button
                   key={index}
                   onClick={() => setSlide(index)}
-                  className={`h-2 rounded-full transition-all ${index === slide ? "w-8 bg-white" : "w-2 bg-white/45"}`}
+                  className={`h-2 rounded-full transition-all ${index === slide ? "keep-white w-8 bg-white" : "w-2 bg-white/45"}`}
                   aria-label={`Tampilkan banner ${index + 1}`}
                 />
               ))}
@@ -1143,7 +1128,7 @@ function ProductDetailPage({
               </Button>
             </div>
             <a
-              href={`https://wa.me/628111234567?text=${encodeURIComponent(`Halo HARTINI, saya ingin konsultasi ${product.name}`)}`}
+              href={`https://wa.me/62315991276?text=${encodeURIComponent(`Halo HARTINI, saya ingin konsultasi ${product.name}`)}`}
               target="_blank"
               rel="noreferrer"
               className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"
@@ -2196,8 +2181,8 @@ function ContactPage({ notify }: { notify: (m: string) => void }) {
         <div className="container grid gap-6 lg:grid-cols-[.75fr_1.25fr]">
           <div className="space-y-3">
             {[
-              [MessageCircle, "WhatsApp", "0811-1234-567"],
-              [Phone, "Layanan Pelanggan", "0800-1-HARTINI"],
+              [MessageCircle, "WhatsApp", "031 5991276"],
+              [Phone, "Layanan Pelanggan", "031 5991276"],
               [Store, "Email", "halo@hartini.example"],
             ].map(([Icon, label, value]) => (
               <div
@@ -2383,18 +2368,6 @@ function Footer() {
             Belanja Elektronik Lengkap, Dekat di Rumah Anda. Produk resmi, pembayaran fleksibel, dan
             layanan yang dapat diandalkan.
           </p>
-          <div className="mt-5 flex gap-2">
-            {[Share2, Globe2, Play].map((Icon, i) => (
-              <a
-                key={i}
-                href="#"
-                className="grid size-10 place-items-center rounded-full bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-                aria-label="Media sosial"
-              >
-                <Icon size={18} />
-              </a>
-            ))}
-          </div>
         </div>
         <FooterCol
           title="Belanja"
@@ -2428,7 +2401,7 @@ function Footer() {
       </div>
       <div className="border-t border-white/10">
         <div className="container flex flex-col gap-2 py-5 text-[11px] text-white/35 sm:flex-row sm:justify-between">
-          <span>© 2027 HARTINI ELECTRONIC. Data dan kontak pada situs ini bersifat fiktif.</span>
+          <span>© 2027 HARTINI ELECTRONIC.</span>
           <span>Kebijakan Privasi • Syarat & Ketentuan</span>
         </div>
       </div>
@@ -2608,6 +2581,20 @@ const TIER_STYLE: Record<string, string> = {
   Gold: "bg-amber-100 text-amber-800",
   Platinum: "bg-[#12285C] text-white",
 };
+
+function ThemeButton() {
+  const dark = useDark();
+  return (
+    <button
+      onClick={() => setDark(!dark)}
+      className="icon-button"
+      aria-label={dark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
+      title={dark ? "Mode terang" : "Mode gelap"}
+    >
+      {dark ? <Sun size={19} /> : <Moon size={19} />}
+    </button>
+  );
+}
 
 function AccountButton() {
   const me = useCustomer();
@@ -4978,17 +4965,6 @@ function AdminPage({
             <Button type="submit" className="mt-4 w-full">
               Masuk
             </Button>
-            <div className="mt-4 rounded-xl bg-[#F4F6FA] p-3 text-[11px] leading-5 text-slate-500">
-              <b className="text-slate-600">Kode demo:</b>
-              <br />
-              Direktur: {ADMIN_PIN}
-              <br />
-              Kepala cabang: KACAB + nama cabang, mis. KACABSIDOARJO
-              <br />
-              Staff cabang: STAFF + nama cabang, mis. STAFFSIDOARJO
-              <br />
-              Hanya contoh, belum aman untuk produksi.
-            </div>
           </form>
         </section>
       </main>
@@ -5314,7 +5290,7 @@ export default function App() {
         {loading ? <SkeletonPage /> : pages[page]}
         {!loading && <Footer />}
         <a
-          href="https://wa.me/628111234567?text=Halo%20HARTINI%20ELECTRONIC"
+          href="https://wa.me/62315991276?text=Halo%20HARTINI%20ELECTRONIC"
           target="_blank"
           rel="noreferrer"
           className="fixed bottom-5 right-5 z-50 grid size-14 place-items-center rounded-full bg-[#12A564] text-white shadow-[0_10px_30px_rgba(18,165,100,.35)] transition hover:scale-105"

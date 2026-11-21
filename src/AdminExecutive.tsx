@@ -33,9 +33,9 @@ const C = {
 };
 type Status = "good" | "warn" | "bad";
 const STATUS: Record<Status, { label: string; fg: string; bg: string; dot: string }> = {
-  good: { label: "≥ target", fg: "#0a6e0a", bg: "#e7f6e7", dot: C.good },
-  warn: { label: "mendekati", fg: "#7a5200", bg: "#fff3d1", dot: C.warn },
-  bad: { label: "di bawah", fg: "#a32727", bg: "#fbe7e7", dot: C.bad },
+  good: { label: "≥ target", fg: "var(--chip-good-fg)", bg: "var(--chip-good-bg)", dot: C.good },
+  warn: { label: "mendekati", fg: "var(--chip-warn-fg)", bg: "var(--chip-warn-bg)", dot: C.warn },
+  bad: { label: "di bawah", fg: "var(--chip-bad-fg)", bg: "var(--chip-bad-bg)", dot: C.bad },
 };
 const statusOf = (ratio: number): Status => (ratio >= 1 ? "good" : ratio >= 0.95 ? "warn" : "bad");
 
